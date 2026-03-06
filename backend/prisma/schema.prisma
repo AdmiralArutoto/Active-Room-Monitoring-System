@@ -19,3 +19,21 @@ model User {
   role          Role     @default(VIEWER)
   created_at    DateTime @default(now())
 }
+
+enum AreaType {
+  BUILDING
+  FLOOR
+  ROOM
+}
+
+model Area {
+  id          String   @id @default(uuid())
+  name        String
+  type        AreaType
+  parent_id   String?
+  parent      Area?    @relation("AreaChildren", fields: [parent_id], references: [id])
+  children    Area[]   @relation("AreaChildren")
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+}

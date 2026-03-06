@@ -1,10 +1,30 @@
-function App() {
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import LoginPage from './pages/LoginPage';
+import AreasPage from './pages/AreasPage';
+
+function ProtectedRoute({ children }) {
+  const { token } = useAuth();
+  return token ? children : <Navigate to="/login" replace />;
+}
+
+function AppRoutes() {
+  const { token } = useAuth();
   return (
-    <div style={{ fontFamily: 'sans-serif', padding: '2rem' }}>
-      <h1>ARDS</h1>
-      <p>Frontend stub — Phase 1</p>
-    </div>
+    <Routes>
+      <Route path="/login" element={token ? <Navigate to="/areas" replace /> : <LoginPage />} />
+      <Route path="/areas" element={<ProtectedRoute><AreasPage /></ProtectedRoute>} />
+      <Route path="*" element={<Navigate to={token ? '/areas' : '/login'} replace />} />
+    </Routes>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
