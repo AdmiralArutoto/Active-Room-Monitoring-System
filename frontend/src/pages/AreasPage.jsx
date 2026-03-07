@@ -14,7 +14,7 @@ export default function AreasPage() {
   const [selected, setSelected] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: '', type: 'BUILDING', parent_id: '', description: '' });
+  const [form, setForm] = useState({ name: '', type: 'BUILDING', parent_id: '', description: '', code: '' });
   const [error, setError] = useState(null);
 
   async function loadRoots() {
@@ -48,9 +48,10 @@ export default function AreasPage() {
         type: form.type,
         parent_id: form.parent_id || undefined,
         description: form.description || undefined,
+        code: form.code || undefined,
       });
       setShowCreate(false);
-      setForm({ name: '', type: 'BUILDING', parent_id: '', description: '' });
+      setForm({ name: '', type: 'BUILDING', parent_id: '', description: '', code: '' });
       loadRoots();
     } catch (err) { setError(err.message); }
   }
@@ -61,6 +62,7 @@ export default function AreasPage() {
     try {
       const updated = await api.put(`/areas/${selected.id}`, {
         name: form.name,
+        code: form.code || undefined,
         description: form.description || undefined,
       });
       setSelected(updated);
@@ -89,13 +91,13 @@ export default function AreasPage() {
   }
 
   function openEdit() {
-    setForm({ name: selected.name, type: selected.type, parent_id: selected.parent_id || '', description: selected.description || '' });
+    setForm({ name: selected.name, type: selected.type, parent_id: selected.parent_id || '', description: selected.description || '', code: selected.code || '' });
     setEditMode(true);
     setShowCreate(false);
   }
 
   function openCreate() {
-    setForm({ name: '', type: 'BUILDING', parent_id: '', description: '' });
+    setForm({ name: '', type: 'BUILDING', parent_id: '', description: '', code: '' });
     setShowCreate(true);
     setEditMode(false);
   }
@@ -108,6 +110,7 @@ export default function AreasPage() {
           <span style={{ fontWeight: 700 }}>Areas</span>
           <div style={{ display: 'flex', gap: 8 }}>
             <button style={styles.btnSmall} onClick={openCreate}>+ New</button>
+            <button style={styles.btnSmall} onClick={() => navigate('/sensors')}>Sensors</button>
             <button style={{ ...styles.btnSmall, background: '#6b7280' }} onClick={handleLogout}>Logout</button>
           </div>
         </div>
@@ -138,6 +141,8 @@ export default function AreasPage() {
             </select>
             <label style={styles.label}>Parent ID (optional)</label>
             <input style={styles.input} value={form.parent_id} onChange={e => setForm(f => ({ ...f, parent_id: e.target.value }))} placeholder="Leave blank for BUILDING" />
+            <label style={styles.label}>Code <span style={{ fontWeight: 400, color: '#6b7280' }}>(e.g. B02, F01, R103)</span></label>
+            <input style={styles.input} value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} placeholder="Short identifier for sensor key generation" />
             <label style={styles.label}>Description</label>
             <input style={styles.input} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             <div style={{ display: 'flex', gap: 8 }}>
@@ -155,6 +160,8 @@ export default function AreasPage() {
                 {error && <p style={styles.error}>{error}</p>}
                 <label style={styles.label}>Name</label>
                 <input style={styles.input} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
+                <label style={styles.label}>Code</label>
+                <input style={styles.input} value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} placeholder="e.g. B02, F01, R103" />
                 <label style={styles.label}>Description</label>
                 <input style={styles.input} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -165,7 +172,9 @@ export default function AreasPage() {
             ) : (
               <>
                 <h3 style={{ marginTop: 0 }}>{selected.name}</h3>
+                <p style={styles.meta}><strong>ID:</strong> <code>{selected.id}</code></p>
                 <p style={styles.meta}><strong>Type:</strong> {selected.type}</p>
+                <p style={styles.meta}><strong>Code:</strong> {selected.code ?? <span style={{ color: '#9ca3af' }}>not set</span>}</p>
                 <p style={styles.meta}><strong>Status:</strong> {selected.is_active ? 'Active' : 'Inactive'}</p>
                 {selected.description && <p style={styles.meta}><strong>Description:</strong> {selected.description}</p>}
                 {error && <p style={styles.error}>{error}</p>}

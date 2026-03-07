@@ -29,9 +29,9 @@ async function validateParent(type, parentId) {
   }
 }
 
-async function createArea({ name, type, parent_id, description }) {
+async function createArea({ name, type, parent_id, code, description }) {
   await validateParent(type, parent_id ?? null);
-  return areaRepo.create({ name, type, parent_id: parent_id ?? null, description: description ?? null });
+  return areaRepo.create({ name, type, parent_id: parent_id ?? null, code: code ?? null, description: description ?? null });
 }
 
 async function getArea(id) {
@@ -55,9 +55,9 @@ async function getTree(id) {
   return tree;
 }
 
-async function updateArea(id, { name, description }) {
+async function updateArea(id, { name, code, description }) {
   await getArea(id);
-  return areaRepo.update(id, { name, description });
+  return areaRepo.update(id, { name, code, description });
 }
 
 async function setActive(id, is_active) {

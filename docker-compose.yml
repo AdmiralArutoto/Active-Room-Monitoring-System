@@ -26,6 +26,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
       PORT: ${PORT:-3000}
+      TEST_DATABASE_URL: ${TEST_DATABASE_URL}
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
 
@@ -39,5 +40,21 @@ services:
     ports:
       - "5173:5173"
 
+  db_test:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ards_test
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ards_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres_data:
+  postgres_test_data:

@@ -9,6 +9,8 @@ COPY prisma ./prisma
 RUN npx prisma generate
 
 COPY src ./src
+COPY jest.config.js ./
+COPY tests ./tests
 
 EXPOSE 3000
 

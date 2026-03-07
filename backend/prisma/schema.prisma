@@ -27,13 +27,55 @@ enum AreaType {
 }
 
 model Area {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   name        String
   type        AreaType
   parent_id   String?
-  parent      Area?    @relation("AreaChildren", fields: [parent_id], references: [id])
-  children    Area[]   @relation("AreaChildren")
+  parent      Area?     @relation("AreaChildren", fields: [parent_id], references: [id])
+  children    Area[]    @relation("AreaChildren")
+  code        String?
   description String?
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
+  is_active   Boolean   @default(true)
+  created_at  DateTime  @default(now())
+  sensors     Sensor[]
+}
+
+enum SensorKind {
+  MOTION
+  LIGHT
+  TEMPERATURE
+  DOOR
+  OTHER
+}
+
+model Sensor {
+  id           String       @id @default(uuid())
+  sensor_key   String       @unique
+  name         String
+  kind         SensorKind   @default(OTHER)
+  room_area_id String?
+  room         Area?        @relation(fields: [room_area_id], references: [id])
+  is_active    Boolean      @default(true)
+  metadata     Json?
+  created_at   DateTime     @default(now())
+  state        SensorState?
+  events       SensorEvent[]
+}
+
+model SensorState {
+  sensor_id  String   @id
+  sensor     Sensor   @relation(fields: [sensor_id], references: [id])
+  last_value String
+  last_ts    DateTime
+  updated_at DateTime @updatedAt
+}
+
+model SensorEvent {
+  id         String   @id @default(uuid())
+  sensor_id  String
+  sensor     Sensor   @relation(fields: [sensor_id], references: [id])
+  value      String
+  ts         DateTime
+  raw        Json?
+  created_at DateTime @default(now())
 }
