@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config');
 const userRepo = require('../repositories/user.repository');
 
+// Verifies username + password against the stored hash. Returns a signed JWT on success, null if credentials are wrong.
 async function login(username, password) {
   const user = await userRepo.findByUsername(username);
   if (!user) return null;
@@ -19,6 +20,7 @@ async function login(username, password) {
   return token;
 }
 
+// Validates a JWT and returns the decoded payload. Throws if the token is invalid or expired.
 function verifyToken(token) {
   return jwt.verify(token, config.jwtSecret);
 }

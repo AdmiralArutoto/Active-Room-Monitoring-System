@@ -2,6 +2,9 @@ const sensorRepo = require('../repositories/sensor.repository');
 const stateStore = require('../store/state.store');
 const emitter = require('../events/emitter');
 
+// Processes an incoming sensor reading: looks up the sensor, updates the in-memory state store,
+// and emits a state_changed event (which triggers async DB writes in app.js).
+// Throws 404 if the sensor_key is unknown, 403 if the sensor is inactive.
 async function ingest(sensor_key, state, ts) {
   const sensor = await sensorRepo.findBySensorKey(sensor_key);
   if (!sensor) throw Object.assign(new Error(`Unknown sensor_key: ${sensor_key}`), { status: 404 });
