@@ -16,7 +16,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(username, password);
-      navigate('/areas');
+      navigate('/home');
     } catch (err) {
       setError(err.message);
     } finally {
