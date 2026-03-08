@@ -10,21 +10,11 @@ const NAV_ITEMS = [
   { path: '/logs',      label: 'Logs',      icon: '≡', disabled: true },
 ];
 
-const PATH_CRUMBS = {
-  '/home':      ['Home'],
-  '/dashboard': ['Home', 'Dashboard'],
-  '/areas':     ['Home', 'Areas'],
-  '/sensors':   ['Home', 'Sensors'],
-  '/logs':      ['Home', 'Logs'],
-};
-
 export default function AppLayout({ children }) {
   const [navOpen, setNavOpen] = useState(true);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  const crumbs = PATH_CRUMBS[location.pathname] ?? ['Home'];
 
   function handleLogout() {
     logout();
@@ -59,17 +49,7 @@ export default function AppLayout({ children }) {
       {/* Right: top bar + content */}
       <div style={s.right}>
         <div style={s.topBar}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button style={s.hamburger} onClick={() => setNavOpen(o => !o)}>☰</button>
-            <div style={s.crumb}>
-              {crumbs.map((label, i) => (
-                <span key={i}>
-                  {i > 0 && <span style={s.crumbSep}>/</span>}
-                  <span style={i === crumbs.length - 1 ? s.crumbCurrent : s.crumbPrev}>{label}</span>
-                </span>
-              ))}
-            </div>
-          </div>
+          <button style={s.hamburger} onClick={() => setNavOpen(o => !o)}>☰</button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={s.username}>{user?.username}</span>
             <button style={s.logoutBtn} onClick={handleLogout}>Logout</button>
@@ -91,10 +71,6 @@ const s = {
   right:        { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 },
   topBar:       { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, borderBottom: '1px solid #e5e7eb', background: '#fff', flexShrink: 0 },
   hamburger:    { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: '4px 6px', color: '#374151', lineHeight: 1 },
-  crumb:        { fontSize: 13 },
-  crumbSep:     { margin: '0 6px', color: '#d1d5db' },
-  crumbPrev:    { color: '#9ca3af' },
-  crumbCurrent: { color: '#111827', fontWeight: 600 },
   username:     { fontSize: 13, color: '#6b7280' },
   logoutBtn:    { padding: '4px 10px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 4, cursor: 'pointer', fontSize: 12 },
   content:      { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' },

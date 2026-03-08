@@ -19,4 +19,16 @@ export const api = {
   put:    (path, body)   => request(path, { method: 'PUT',    body: JSON.stringify(body) }),
   patch:  (path, body)   => request(path, { method: 'PATCH',  body: JSON.stringify(body) }),
   delete: (path)         => request(path, { method: 'DELETE' }),
+  upload: (path, formData) => {
+    const token = localStorage.getItem('token');
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return fetch(`${API_URL}${path}`, { method: 'POST', headers, body: formData })
+      .then(async res => {
+        if (res.status === 204) return null;
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        return data;
+      });
+  },
 };

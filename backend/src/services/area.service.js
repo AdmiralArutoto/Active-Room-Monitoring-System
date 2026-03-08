@@ -1,18 +1,28 @@
 const areaRepo = require('../repositories/area.repository');
 
 const VALID_PARENT_TYPE = {
-  BUILDING: null,
-  FLOOR: 'BUILDING',
-  ROOM: 'FLOOR',
+  SITE:     null,        // SITE is the root, no parent
+  BUILDING: 'SITE',     // BUILDING must be under a SITE
+  FLOOR:    'BUILDING',  // FLOOR must be under a BUILDING
+  ROOM:     'FLOOR',    // ROOM must be under a FLOOR
 };
 
-// Enforces hierarchy rules: BUILDING has no parent, FLOOR must be under a BUILDING, ROOM must be under a FLOOR.
-// Throws 400 if the rule is violated, 404 if the parent doesn't exist.
+// Throws 409 if another sibling under parentId already uses the same code (excludeId = self on update).
+async function checkCodeUnique(parentId, code, excludeId = null) {
+  if (!code || !parentId) return;
+  const siblings = await areaRepo.findByParentAndCode(parentId, code);
+  const conflicts = excludeId ? siblings.filter(s => s.id !== excludeId) : siblings;
+  if (conflicts.length > 0) {
+    throw Object.assign(new Error(`Code "${code}" is already used by another area here`), { status: 409 });
+  }
+}
+
+// Enforces hierarchy rules. Throws 400 if violated, 404 if parent not found.
 async function validateParent(type, parentId) {
   const expectedParentType = VALID_PARENT_TYPE[type];
 
   if (expectedParentType === null && parentId) {
-    throw Object.assign(new Error('BUILDING areas cannot have a parent'), { status: 400 });
+    throw Object.assign(new Error(`${type} areas cannot have a parent`), { status: 400 });
   }
   if (expectedParentType !== null && !parentId) {
     throw Object.assign(new Error(`${type} areas require a parent`), { status: 400 });
@@ -31,10 +41,31 @@ async function validateParent(type, parentId) {
   }
 }
 
-// Validates parent hierarchy then persists the new area. Returns the created record.
-async function createArea({ name, type, parent_id, code, description }) {
+// Returns the single SITE area, or null if none exists.
+async function getSite() {
+  const sites = await areaRepo.findByType('SITE');
+  return sites[0] ?? null;
+}
+
+// Validates parent hierarchy then persists the new area. Enforces SITE singleton.
+async function createArea({ name, type, parent_id, code, description, map_x, map_y }) {
+  if (type === 'SITE') {
+    const existing = await areaRepo.findByType('SITE');
+    if (existing.length > 0) {
+      throw Object.assign(new Error('A site already exists'), { status: 409 });
+    }
+  }
   await validateParent(type, parent_id ?? null);
-  return areaRepo.create({ name, type, parent_id: parent_id ?? null, code: code ?? null, description: description ?? null });
+  await checkCodeUnique(parent_id ?? null, code ?? null);
+  return areaRepo.create({
+    name,
+    type,
+    parent_id: parent_id ?? null,
+    code: code ?? null,
+    description: description ?? null,
+    map_x: map_x ?? null,
+    map_y: map_y ?? null,
+  });
 }
 
 // Fetches a single area by ID. Throws 404 if not found.
@@ -44,7 +75,7 @@ async function getArea(id) {
   return area;
 }
 
-// Returns all top-level areas (BUILDINGs with no parent).
+// Returns all top-level areas (parent_id = null, i.e. the SITE).
 async function getRoots() {
   return areaRepo.findRoots();
 }
@@ -55,17 +86,30 @@ async function getChildren(id) {
   return areaRepo.findChildren(id);
 }
 
-// Returns an area and its full subtree (children + grandchildren). Throws 404 if not found.
+// Returns an area and its full subtree. Throws 404 if not found.
 async function getTree(id) {
   const tree = await areaRepo.findSubtree(id);
   if (!tree) throw Object.assign(new Error('Area not found'), { status: 404 });
   return tree;
 }
 
-// Updates mutable fields (name, code, description) on an existing area. Throws 404 if not found.
+// Updates mutable fields on an existing area. Throws 404 if not found.
 async function updateArea(id, { name, code, description }) {
-  await getArea(id);
+  const area = await getArea(id);
+  await checkCodeUnique(area.parent_id, code ?? null, id);
   return areaRepo.update(id, { name, code, description });
+}
+
+// Sets the image_path for an area (used by SITE and FLOOR). Throws 404 if not found.
+async function setImage(id, imagePath) {
+  await getArea(id);
+  return areaRepo.update(id, { image_path: imagePath });
+}
+
+// Sets the map position (x, y) for an area icon (BUILDING, ROOM). Throws 404 if not found.
+async function setPosition(id, map_x, map_y) {
+  await getArea(id);
+  return areaRepo.update(id, { map_x, map_y });
 }
 
 // Enables or disables an area without deleting it. Throws 404 if not found.
@@ -84,4 +128,4 @@ async function deleteArea(id) {
   return areaRepo.remove(id);
 }
 
-module.exports = { createArea, getArea, getRoots, getChildren, getTree, updateArea, setActive, deleteArea };
+module.exports = { getSite, createArea, getArea, getRoots, getChildren, getTree, updateArea, setImage, setPosition, setActive, deleteArea };

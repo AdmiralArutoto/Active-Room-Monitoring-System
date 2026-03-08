@@ -11,6 +11,7 @@ const app = express();
 
 app.use(morgan('dev'));
 app.use(express.json());
+app.use('/uploads', express.static('/app/uploads'));
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });

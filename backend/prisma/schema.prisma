@@ -21,6 +21,7 @@ model User {
 }
 
 enum AreaType {
+  SITE
   BUILDING
   FLOOR
   ROOM
@@ -36,6 +37,9 @@ model Area {
   code        String?
   description String?
   is_active   Boolean   @default(true)
+  image_path  String?
+  map_x       Float?
+  map_y       Float?
   created_at  DateTime  @default(now())
   sensors     Sensor[]
 }

@@ -6,6 +6,10 @@ async function findById(id) {
   return prisma.area.findUnique({ where: { id } });
 }
 
+async function findByType(type) {
+  return prisma.area.findMany({ where: { type }, orderBy: { name: 'asc' } });
+}
+
 async function findRoots() {
   return prisma.area.findMany({ where: { parent_id: null }, orderBy: { name: 'asc' } });
 }
@@ -45,6 +49,10 @@ async function countChildren(parentId) {
   return prisma.area.count({ where: { parent_id: parentId } });
 }
 
+async function findByParentAndCode(parentId, code) {
+  return prisma.area.findMany({ where: { parent_id: parentId, code } });
+}
+
 // Returns [building, floor, room] for a given room id by walking up parent chain.
 async function findWithAncestors(id) {
   const room = await prisma.area.findUnique({
@@ -61,4 +69,4 @@ async function findWithAncestors(id) {
   return { building, floor, room };
 }
 
-module.exports = { findById, findRoots, findChildren, findSubtree, create, update, remove, countChildren, findWithAncestors };
+module.exports = { findById, findByType, findRoots, findChildren, findSubtree, create, update, remove, countChildren, findWithAncestors, findByParentAndCode };
