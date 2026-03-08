@@ -1,7 +1,7 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 async function request(path, options = {}) {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -20,7 +20,7 @@ export const api = {
   patch:  (path, body)   => request(path, { method: 'PATCH',  body: JSON.stringify(body) }),
   delete: (path)         => request(path, { method: 'DELETE' }),
   upload: (path, formData) => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
     return fetch(`${API_URL}${path}`, { method: 'POST', headers, body: formData })

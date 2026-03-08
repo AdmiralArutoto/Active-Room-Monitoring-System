@@ -18,6 +18,7 @@ async function findChildren(parentId) {
   return prisma.area.findMany({ where: { parent_id: parentId }, orderBy: { name: 'asc' } });
 }
 
+//at most 4 levels (fixed) - no need for recursive queries.
 async function findSubtree(id) {
   return prisma.area.findUnique({
     where: { id },

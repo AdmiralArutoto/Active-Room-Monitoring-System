@@ -1,4 +1,5 @@
 docs/plan.md
+docs/sensor_injest.md
 node_modules/
 .env
 .env.local

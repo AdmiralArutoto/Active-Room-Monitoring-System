@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Image as KonvaImage, Group, Rect, Text } from 'react-konva';
 import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -59,6 +60,9 @@ function AreaIcon({ area, color, draggable, onDragEnd, onClick }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   // Site
   const [site, setSite] = useState(null);
   const [siteLoaded, setSiteLoaded] = useState(false);
@@ -382,7 +386,7 @@ export default function DashboardPage() {
             <select style={d.select} value={selBuilding?.id ?? ''} onChange={handleSelectBuilding}>
               <option value="">— Building —</option>
               {buildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              <option value="__create__">+ Create Building</option>
+              {isAdmin && <option value="__create__">+ Create Building</option>}
             </select>
 
             {/* Floor dropdown */}
@@ -390,7 +394,7 @@ export default function DashboardPage() {
               <select style={d.select} value={selFloor?.id ?? ''} onChange={handleSelectFloor}>
                 <option value="">— Floor —</option>
                 {floors.map(f => <option key={f.id} value={f.id}>{f.code}</option>)}
-                <option value="__create__">+ Create Floor</option>
+                {isAdmin && <option value="__create__">+ Create Floor</option>}
               </select>
             )}
 
@@ -399,7 +403,7 @@ export default function DashboardPage() {
               <select style={d.select} value={selRoom?.id ?? ''} onChange={handleSelectRoom}>
                 <option value="">— Room —</option>
                 {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                <option value="__create__">+ Create Room</option>
+                {isAdmin && <option value="__create__">+ Create Room</option>}
               </select>
             )}
           </div>
@@ -420,7 +424,7 @@ export default function DashboardPage() {
           : !site ? (
             <div style={d.empty}>
               <p style={{ color: '#9ca3af', marginBottom: 16 }}>No site configured.</p>
-              <button style={d.createSiteBtn} onClick={() => openModal('site')}>Create Site</button>
+              {isAdmin && <button style={d.createSiteBtn} onClick={() => openModal('site')}>Create Site</button>}
             </div>
           ) : !bgImage ? (
             <div style={d.empty}>
@@ -498,10 +502,10 @@ export default function DashboardPage() {
               <div style={d.cardHead}>
                 <span style={d.cardType}>{type.charAt(0).toUpperCase() + type.slice(1)}</span>
                 <div style={{ display: 'flex', gap: 4 }}>
-                  {canMove && <button style={d.cardBtn} onClick={() => handleMoveIcon(type)} title="Move icon">↔</button>}
-                  <button style={d.cardBtn} onClick={() => openCardEdit(type, area)} title="Edit">✎</button>
+                  {isAdmin && canMove && <button style={d.cardBtn} onClick={() => handleMoveIcon(type)} title="Move icon">↔</button>}
+                  {isAdmin && <button style={d.cardBtn} onClick={() => openCardEdit(type, area)} title="Edit">✎</button>}
                   <button style={d.cardBtn} onClick={() => infoCard === type ? setInfoCard(null) : openCardInfo(type, area)} title="Info">ⓘ</button>
-                  <button style={{ ...d.cardBtn, color: '#dc2626' }} onClick={() => handleDeleteCard(type)} title="Delete">✕</button>
+                  {isAdmin && <button style={{ ...d.cardBtn, color: '#dc2626' }} onClick={() => handleDeleteCard(type)} title="Delete">✕</button>}
                 </div>
               </div>
               {editingCard === type ? (
