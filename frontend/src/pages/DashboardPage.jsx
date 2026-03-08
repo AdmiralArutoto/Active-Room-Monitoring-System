@@ -88,12 +88,16 @@ export default function DashboardPage() {
   const [modalError, setModalError] = useState(null);
 
   // Form fields (modal)
-  const [form, setForm] = useState({ name: '', code: '', file: null });
+  const [form, setForm] = useState({ name: '', code: '', description: '', file: null });
 
   // Card editing
   const [editingCard, setEditingCard] = useState(null); // 'building' | 'floor' | 'room' | null
   const [cardForm, setCardForm] = useState({ name: '', code: '' });
   const [cardError, setCardError] = useState(null);
+
+  // Card info panel
+  const [infoCard, setInfoCard] = useState(null); // 'building' | 'floor' | 'room' | null
+  const [infoSensors, setInfoSensors] = useState([]);
 
   // ── Resize observer ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -176,7 +180,7 @@ export default function DashboardPage() {
   // ── Modal helpers ────────────────────────────────────────────────────────────
   function openModal(type) {
     setModal(type);
-    setForm({ name: '', code: '', file: null });
+    setForm({ name: '', code: '', description: '', file: null });
     setModalError(null);
   }
 
@@ -214,6 +218,7 @@ export default function DashboardPage() {
         code: form.code.trim(),
         type: 'BUILDING',
         parent_id: site.id,
+        description: form.description.trim() || undefined,
       });
       setModal(null);
       setPlacingArea(created);
@@ -233,6 +238,7 @@ export default function DashboardPage() {
         code: form.code.trim(),
         type: 'FLOOR',
         parent_id: selBuilding.id,
+        description: form.description.trim() || undefined,
       });
       const fd = new FormData();
       fd.append('image', form.file);
@@ -253,6 +259,7 @@ export default function DashboardPage() {
         code: form.code.trim(),
         type: 'ROOM',
         parent_id: selFloor.id,
+        description: form.description.trim() || undefined,
       });
       setModal(null);
       setPlacingArea(created);
@@ -334,6 +341,18 @@ export default function DashboardPage() {
     const target = type === 'building' ? selBuilding : selRoom;
     setPlacingArea(target);
     setPlacingMode('drag');
+  }
+
+  async function openCardInfo(type, area) {
+    setInfoCard(type);
+    setEditingCard(null);
+    try {
+      const all = await api.get('/sensors');
+      const matchIds = type === 'room'
+        ? [area.id]
+        : rooms.map(r => r.id);
+      setInfoSensors(all.filter(s => matchIds.includes(s.room_area_id)));
+    } catch { setInfoSensors([]); }
   }
 
   // ── Canvas scale helpers ──────────────────────────────────────────────────────
@@ -481,6 +500,7 @@ export default function DashboardPage() {
                 <div style={{ display: 'flex', gap: 4 }}>
                   {canMove && <button style={d.cardBtn} onClick={() => handleMoveIcon(type)} title="Move icon">↔</button>}
                   <button style={d.cardBtn} onClick={() => openCardEdit(type, area)} title="Edit">✎</button>
+                  <button style={d.cardBtn} onClick={() => infoCard === type ? setInfoCard(null) : openCardInfo(type, area)} title="Info">ⓘ</button>
                   <button style={{ ...d.cardBtn, color: '#dc2626' }} onClick={() => handleDeleteCard(type)} title="Delete">✕</button>
                 </div>
               </div>
@@ -500,10 +520,22 @@ export default function DashboardPage() {
                     <button style={d.cancelBtn} type="button" onClick={() => setEditingCard(null)}>Cancel</button>
                   </div>
                 </form>
+              ) : infoCard === type ? (
+                <div style={{ padding: '6px 12px 10px' }}>
+                  <p style={d.cardInfoRow}><span style={d.cardInfoKey}>ID</span><span style={{ fontFamily: 'monospace', fontSize: 10, wordBreak: 'break-all' }}>{area.id}</span></p>
+                  <p style={d.cardInfoRow}><span style={d.cardInfoKey}>Type</span>{area.type}</p>
+                  <p style={d.cardInfoRow}><span style={d.cardInfoKey}>Created</span>{new Date(area.created_at).toLocaleDateString()}</p>
+                  {area.description && <p style={d.cardInfoRow}><span style={d.cardInfoKey}>Desc</span>{area.description}</p>}
+                  <p style={{ ...d.cardInfoRow, marginTop: 6 }}><span style={d.cardInfoKey}>Sensors</span>{infoSensors.length === 0 ? '—' : ''}</p>
+                  {infoSensors.map(s => (
+                    <p key={s.id} style={{ ...d.cardMeta, paddingLeft: 8 }}>• {s.name} <span style={{ color: '#d1d5db' }}>({s.kind})</span></p>
+                  ))}
+                </div>
               ) : (
                 <div style={{ padding: '6px 12px 10px' }}>
                   <p style={d.cardName}>{area.name}</p>
                   {area.code && area.code !== area.name && <p style={d.cardMeta}>Code: {area.code}</p>}
+                  {area.description && <p style={d.cardMeta}>{area.description}</p>}
                   <p style={d.cardMeta}>Status: {area.is_active ? 'Active' : 'Inactive'}</p>
                 </div>
               )}
@@ -538,6 +570,8 @@ export default function DashboardPage() {
             <input style={m.input} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required autoFocus />
             <label style={m.label}>Code</label>
             <input style={m.input} placeholder="e.g. B01" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} required />
+            <label style={m.label}>Description <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+            <textarea style={m.textarea} rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             <p style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 0' }}>
               After creating, click the map to place the building icon.
             </p>
@@ -555,6 +589,8 @@ export default function DashboardPage() {
             {modalError && <p style={m.error}>{modalError}</p>}
             <label style={m.label}>Code</label>
             <input style={m.input} placeholder="e.g. F01" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} required autoFocus />
+            <label style={m.label}>Description <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+            <textarea style={m.textarea} rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             <label style={m.label}>Floor Map Image</label>
             <input type="file" accept="image/*" style={m.fileInput} onChange={e => setForm(f => ({ ...f, file: e.target.files[0] ?? null }))} required />
             <div style={m.actions}>
@@ -573,6 +609,8 @@ export default function DashboardPage() {
             <input style={m.input} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required autoFocus />
             <label style={m.label}>Code</label>
             <input style={m.input} placeholder="e.g. R101" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} required />
+            <label style={m.label}>Description <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+            <textarea style={m.textarea} rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             <p style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 0' }}>
               After creating, click the floor map to place the room icon.
             </p>
@@ -606,10 +644,12 @@ const d = {
   cardBtn:    { background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#6b7280', padding: '0 3px', lineHeight: 1 },
   cardName:   { fontSize: 13, fontWeight: 600, color: '#111827', margin: '0 0 2px' },
   cardMeta:   { fontSize: 11, color: '#9ca3af', margin: '0 0 2px' },
-  cardLabel:  { display: 'block', fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 2 },
-  cardInput:  { display: 'block', width: '100%', padding: '4px 6px', fontSize: 12, border: '1px solid #d1d5db', borderRadius: 3, boxSizing: 'border-box', marginBottom: 6 },
-  saveBtn:    { padding: '4px 10px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer', fontSize: 12 },
-  cancelBtn:  { padding: '4px 10px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 3, cursor: 'pointer', fontSize: 12 },
+  cardLabel:    { display: 'block', fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 2 },
+  cardInput:    { display: 'block', width: '100%', padding: '4px 6px', fontSize: 12, border: '1px solid #d1d5db', borderRadius: 3, boxSizing: 'border-box', marginBottom: 6 },
+  saveBtn:      { padding: '4px 10px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer', fontSize: 12 },
+  cancelBtn:    { padding: '4px 10px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 3, cursor: 'pointer', fontSize: 12 },
+  cardInfoRow:  { display: 'flex', gap: 6, fontSize: 11, color: '#374151', margin: '0 0 3px', lineHeight: '1.4' },
+  cardInfoKey:  { fontWeight: 600, color: '#9ca3af', minWidth: 52, flexShrink: 0 },
 };
 
 // ── Modal styles ──────────────────────────────────────────────────────────────
@@ -622,6 +662,7 @@ const m = {
   label:    { display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 },
   input:    { display: 'block', width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid #d1d5db', borderRadius: 4, boxSizing: 'border-box', marginBottom: 12 },
   fileInput:{ display: 'block', marginBottom: 16, fontSize: 13 },
+  textarea: { display: 'block', width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid #d1d5db', borderRadius: 4, boxSizing: 'border-box', marginBottom: 12, resize: 'vertical', fontFamily: 'inherit' },
   actions:  { display: 'flex', gap: 8, marginTop: 8 },
   btn:      { padding: '8px 18px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13 },
   btnGray:  { padding: '8px 18px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 4, cursor: 'pointer', fontSize: 13 },
