@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Stage, Layer, Image as KonvaImage, Group, Rect, Text } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Group, Rect, Text, Circle } from 'react-konva';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -8,6 +8,49 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 // ── Icon dimensions ───────────────────────────────────────────────────────────
 const ICON_W = 80;
 const ICON_H = 36;
+const ROOM_ICON_W = 80;
+const ROOM_ICON_H = 48;
+const SENSOR_DOT_R = 4;
+
+// ── Sensor state → color mapping ─────────────────────────────────────────────
+const STATE_COLORS = {
+  active:       { normal: '#22c55e', selected: '#16a34a' }, // green
+  idle:         { normal: '#64748b', selected: '#475569' }, // blueish-gray
+  fault:        { normal: '#eab308', selected: '#ca8a04' }, // yellow
+  unconfigured: { normal: '#9ca3af', selected: '#6b7280' }, // gray
+};
+
+function classifySensorState(stateValue) {
+  if (!stateValue) return 'unconfigured';
+  const v = stateValue.toLowerCase();
+  if (v === 'on' || v === 'active' || v === 'detected') return 'active';
+  if (v === 'off' || v === 'idle') return 'idle';
+  if (v === 'fault' || v === 'error') return 'fault';
+  return 'idle';
+}
+
+function getSensorDotColor(sensor, sensorStates) {
+  const entry = sensorStates[sensor.sensor_key];
+  if (!entry) return STATE_COLORS.unconfigured.normal;
+  return STATE_COLORS[classifySensorState(entry.state)].normal;
+}
+
+function getRoomColor(room, sensors, sensorStates, isSelected) {
+  const roomSensors = sensors.filter(s => s.room_area_id === room.id);
+  if (roomSensors.length === 0) {
+    return isSelected ? STATE_COLORS.unconfigured.selected : STATE_COLORS.unconfigured.normal;
+  }
+  const classifications = roomSensors.map(s => {
+    const entry = sensorStates[s.sensor_key];
+    return entry ? classifySensorState(entry.state) : null;
+  });
+  let status;
+  if (classifications.some(c => c === 'fault')) status = 'fault';
+  else if (classifications.some(c => c === 'active')) status = 'active';
+  else if (classifications.some(c => c === 'idle')) status = 'idle';
+  else status = 'unconfigured';
+  return isSelected ? STATE_COLORS[status].selected : STATE_COLORS[status].normal;
+}
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children }) {
@@ -25,7 +68,7 @@ function Modal({ title, onClose, children }) {
 }
 
 // ── Area icon on canvas ───────────────────────────────────────────────────────
-function AreaIcon({ area, color, draggable, onDragEnd, onClick }) {
+function AreaIcon({ area, color, draggable, onDragEnd, onClick, onDblClick }) {
   return (
     <Group
       x={area.map_x}
@@ -33,6 +76,7 @@ function AreaIcon({ area, color, draggable, onDragEnd, onClick }) {
       draggable={draggable}
       onDragEnd={e => onDragEnd(area, e.target.x(), e.target.y())}
       onClick={() => onClick(area)}
+      onDblClick={() => onDblClick?.(area)}
     >
       <Rect
         width={ICON_W}
@@ -54,6 +98,59 @@ function AreaIcon({ area, color, draggable, onDragEnd, onClick }) {
         fill="#fff"
         listening={false}
       />
+    </Group>
+  );
+}
+
+// ── Room icon on canvas (with sensor dots) ───────────────────────────────────
+function RoomIcon({ area, color, roomSensors, sensorStates, draggable, onDragEnd, onClick }) {
+  const hasDots = roomSensors.length > 0;
+  const h = hasDots ? ROOM_ICON_H : ICON_H;
+  const labelH = hasDots ? ICON_H - 2 : ICON_H;
+  const dotY = labelH + (ROOM_ICON_H - labelH) / 2;
+  const totalDotsW = roomSensors.length * (SENSOR_DOT_R * 2 + 4) - 4;
+  const dotStartX = (ROOM_ICON_W - totalDotsW) / 2;
+
+  return (
+    <Group
+      x={area.map_x}
+      y={area.map_y}
+      draggable={draggable}
+      onDragEnd={e => onDragEnd(area, e.target.x(), e.target.y())}
+      onClick={() => onClick(area)}
+    >
+      <Rect
+        width={ROOM_ICON_W}
+        height={h}
+        fill={color}
+        cornerRadius={4}
+        shadowBlur={4}
+        shadowOpacity={0.2}
+        shadowOffsetY={2}
+      />
+      <Text
+        text={area.name}
+        width={ROOM_ICON_W}
+        height={labelH}
+        align="center"
+        verticalAlign="middle"
+        fontSize={11}
+        fontStyle="bold"
+        fill="#fff"
+        listening={false}
+      />
+      {hasDots && roomSensors.map((s, i) => (
+        <Circle
+          key={s.id}
+          x={dotStartX + i * (SENSOR_DOT_R * 2 + 4) + SENSOR_DOT_R}
+          y={dotY}
+          radius={SENSOR_DOT_R}
+          fill={getSensorDotColor(s, sensorStates)}
+          stroke="rgba(255,255,255,0.5)"
+          strokeWidth={1}
+          listening={false}
+        />
+      ))}
     </Group>
   );
 }
@@ -103,6 +200,10 @@ export default function DashboardPage() {
   const [infoCard, setInfoCard] = useState(null); // 'building' | 'floor' | 'room' | null
   const [infoSensors, setInfoSensors] = useState([]);
 
+  // Sensor state polling
+  const [sensors, setSensors] = useState([]);
+  const [sensorStates, setSensorStates] = useState({});
+
   // ── Resize observer ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
@@ -121,6 +222,20 @@ export default function DashboardPage() {
       setSiteLoaded(true);
       if (data) loadBuildings(data.id);
     }).catch(() => setSiteLoaded(true));
+  }, []);
+
+  // ── Load sensors on mount ───────────────────────────────────────────────────
+  useEffect(() => {
+    api.get('/sensors').then(setSensors).catch(() => {});
+  }, []);
+
+  // ── Poll sensor states every 5s ────────────────────────────────────────────
+  useEffect(() => {
+    let active = true;
+    const poll = () => api.get('/api/states').then(data => { if (active) setSensorStates(data); }).catch(() => {});
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => { active = false; clearInterval(id); };
   }, []);
 
   // ── Load map image ───────────────────────────────────────────────────────────
@@ -465,7 +580,22 @@ export default function DashboardPage() {
                           setSelBuilding(full);
                           setSelFloor(null);
                           setSelRoom(null);
+                          setRooms([]);
                           loadFloors(full.id);
+                        }}
+                        onDblClick={async area => {
+                          const full = buildings.find(x => x.id === area.id);
+                          setSelBuilding(full);
+                          setSelFloor(null);
+                          setSelRoom(null);
+                          const floorData = await api.get(`/areas/${full.id}/children`);
+                          const floorList = floorData.filter(a => a.type === 'FLOOR');
+                          setFloors(floorList);
+                          setRooms([]);
+                          if (floorList.length > 0) {
+                            setSelFloor(floorList[0]);
+                            await loadRooms(floorList[0].id);
+                          }
                         }}
                       />
                     ))
@@ -474,10 +604,12 @@ export default function DashboardPage() {
                   {showRooms && rooms
                     .filter(r => r.map_x != null && r.map_y != null)
                     .map(r => (
-                      <AreaIcon
+                      <RoomIcon
                         key={r.id}
                         area={{ ...r, map_x: r.map_x * scale, map_y: r.map_y * scale }}
-                        color={selRoom?.id === r.id ? '#15803d' : '#16a34a'}
+                        color={getRoomColor(r, sensors, sensorStates, selRoom?.id === r.id)}
+                        roomSensors={sensors.filter(s => s.room_area_id === r.id)}
+                        sensorStates={sensorStates}
                         draggable={placingMode === 'drag' && placingArea?.id === r.id}
                         onDragEnd={(area, x, y) => handleDragEnd(area, x / scale, y / scale)}
                         onClick={area => setSelRoom(rooms.find(x => x.id === area.id))}

@@ -314,3 +314,148 @@ Keys are system-generated from the area hierarchy:
 e.g. B01.F01.R101.motion_sensor_1
 ```
 Generated at sensor registration time by traversing the area tree. Stable for the lifetime of the sensor.
+
+---
+
+## Room Icon — Live Sensor State
+
+Room icons on the dashboard reflect live sensor state. Each room can have at most **one sensor per kind** (enforced by a `@@unique([room_area_id, kind])` constraint).
+
+### Icon structure (Konva)
+
+```
+┌──────────────────┐
+│    Room Name     │  ← room label
+├──────────────────┤
+│  [■] [■]         │  ← sensor badges (one per sensor, colored by kind)
+└──────────────────┘
+```
+
+- Size: 80 × 48 px (taller than building icons at 80 × 36)
+- Sensor badges are small rounded rects (16 × 8 px), colored by sensor kind to match the SensorsPage badge style
+- Badge opacity/stroke conveys state; overall background color is derived from all sensors collectively
+
+### Sensor badge colors (by kind)
+
+| Kind   | Color   | Hex       |
+|--------|---------|-----------|
+| LIGHT  | Amber   | `#d97706` |
+| MOTION | Purple  | `#7c3aed` |
+
+### Badge state indicators
+
+| State | Opacity | Stroke |
+|-------|---------|--------|
+| Active (on) | 1.0 | — |
+| Idle (off) | 0.45 | — |
+| Fault/error | 1.0 | Yellow `#eab308` |
+| No data | 0.35 | — |
+
+### Overall icon background color
+
+Derived from all sensors in the room collectively:
+
+| Condition | Color | Hex |
+|-----------|-------|-----|
+| Any sensor fault/error | Yellow | `#eab308` |
+| Any sensor active/on | Green | `#22c55e` |
+| All sensors idle/off | Blueish-gray | `#64748b` |
+| No sensors assigned | Gray | `#9ca3af` |
+| Sensors exist, no data | Gray | `#9ca3af` |
+
+Selected room uses a slightly darker shade of the same color.
+
+### Polling
+
+- `GET /sensors` fetched on mount → populates sensor list
+- `GET /api/states` polled every 5 seconds → updates `sensorStates` map
+- Room icon colors and badge opacities re-render reactively on state changes
+
+---
+
+## Telemetry — Event Log
+
+### Concept
+
+Every sensor state push is already appended to the `SensorEvent` table (via the `state_changed` emitter listener). The event log feature exposes this history through a query API and a filterable frontend page.
+
+### Database indexes
+
+Two indexes added to `SensorEvent` for query performance:
+
+```sql
+CREATE INDEX "SensorEvent_sensor_id_ts_idx" ON "SensorEvent"("sensor_id", "ts" DESC);
+CREATE INDEX "SensorEvent_ts_idx" ON "SensorEvent"("ts" DESC);
+```
+
+The composite index covers sensor-filtered queries; the standalone `ts` index covers unfiltered time-ordered queries.
+
+### API
+
+| Method | Endpoint   | Auth | Description |
+|--------|------------|------|-------------|
+| GET    | `/events`  | ✓    | List events with optional filters |
+
+**Query parameters** (all optional):
+
+| Param       | Type   | Description |
+|-------------|--------|-------------|
+| `sensor_id` | UUID   | Filter to a specific sensor |
+| `from`      | ISO date | Events with `ts >= from` |
+| `to`        | ISO date | Events with `ts <= to` |
+| `limit`     | int    | Max rows returned (default 50, max 200) |
+| `offset`    | int    | Skip N rows for pagination |
+
+**Response:** JSON array ordered by `ts` descending (newest first). Each event includes its sensor name and key via a join:
+
+```json
+[
+  {
+    "id": "uuid",
+    "sensor_id": "uuid",
+    "value": "on",
+    "ts": "2026-03-09T12:34:56.000Z",
+    "raw": null,
+    "created_at": "...",
+    "sensor": {
+      "id": "uuid",
+      "name": "Light 1",
+      "sensor_key": "B02.F01.R101.light"
+    }
+  }
+]
+```
+
+### Backend layers
+
+```
+event.routes.js  →  event.controller.js  →  event.service.js  →  sensor.repository.findEvents()
+     GET /events       extract query params     clamp limit/offset      Prisma query with filters
+     requireAuth
+```
+
+### Frontend — LogsPage
+
+**Route:** `/logs` (protected, inside `AppLayout`)
+
+**Layout:**
+
+```
+┌────────────────────────────────────────────────────────┐
+│  [Sensor ▾]  From [____]  To [____]  [Apply] [Clear]  │  ← filter bar
+├────────────────────────────────────────────────────────┤
+│  Timestamp    │ Sensor      │ Key           │ Value    │
+│  ─────────────┼─────────────┼───────────────┼──────────│
+│  3/9 12:34    │ ● Light 1   │ B02.F01...    │ [on]     │
+│  3/9 12:33    │ ● Motion 1  │ B02.F01...    │ [off]    │
+│  ...          │             │               │          │
+├────────────────────────────────────────────────────────┤
+│                    [Load More]                         │
+└────────────────────────────────────────────────────────┘
+```
+
+- **Filter bar:** sensor dropdown (populated from `GET /sensors`), date-from/to inputs, Apply/Clear buttons
+- **Table:** sticky headers, sensor kind dot (purple/amber), value badges (green for on, gray for off, yellow for fault)
+- **Pagination:** "Load More" button appends next page; hidden when fewer rows than limit are returned
+- **Empty state:** "No events found." message
+- Changing any filter resets offset to 0 and replaces the event list

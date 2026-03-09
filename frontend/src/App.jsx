@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import AreasPage from './pages/AreasPage';
 import SensorsPage from './pages/SensorsPage';
+import LogsPage from './pages/LogsPage';
 
 function ProtectedRoute({ children }) {
   const { token } = useAuth();
@@ -21,6 +22,7 @@ function AppRoutes() {
       <Route path="/dashboard" element={<ProtectedRoute><AppLayout><DashboardPage /></AppLayout></ProtectedRoute>} />
       <Route path="/areas"     element={<ProtectedRoute><AppLayout><AreasPage /></AppLayout></ProtectedRoute>} />
       <Route path="/sensors"   element={<ProtectedRoute><AppLayout><SensorsPage /></AppLayout></ProtectedRoute>} />
+      <Route path="/logs"      element={<ProtectedRoute><AppLayout><LogsPage /></AppLayout></ProtectedRoute>} />
       <Route path="*"          element={<Navigate to={token ? '/home' : '/login'} replace />} />
     </Routes>
   );

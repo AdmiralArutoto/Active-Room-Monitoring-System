@@ -20,6 +20,12 @@ async function findBySensorKey(sensor_key) {
   return prisma.sensor.findUnique({ where: { sensor_key } });
 }
 
+async function findByRoomAndKind(room_area_id, kind) {
+  return prisma.sensor.findUnique({
+    where: { room_area_id_kind: { room_area_id, kind } },
+  });
+}
+
 async function create(data) {
   return prisma.sensor.create({ data });
 }
@@ -46,4 +52,21 @@ async function appendEvent(sensor_id, value, ts, raw) {
   });
 }
 
-module.exports = { findAll, findById, findBySensorKey, create, update, remove, upsertState, appendEvent };
+async function findEvents({ sensor_id, from, to, limit = 50, offset = 0 }) {
+  const where = {};
+  if (sensor_id) where.sensor_id = sensor_id;
+  if (from || to) {
+    where.ts = {};
+    if (from) where.ts.gte = new Date(from);
+    if (to) where.ts.lte = new Date(to);
+  }
+  return prisma.sensorEvent.findMany({
+    where,
+    include: { sensor: { select: { id: true, name: true, sensor_key: true } } },
+    orderBy: { ts: 'desc' },
+    take: limit,
+    skip: offset,
+  });
+}
+
+module.exports = { findAll, findById, findBySensorKey, findByRoomAndKind, create, update, remove, upsertState, appendEvent, findEvents };

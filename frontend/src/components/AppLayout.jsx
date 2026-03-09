@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: '⊞' },
   { path: '/areas',     label: 'Areas',     icon: '⬡' },
   { path: '/sensors',   label: 'Sensors',   icon: '◉' },
-  { path: '/logs',      label: 'Logs',      icon: '≡', disabled: true },
+  { path: '/logs',      label: 'Logs',      icon: '≡' },
 ];
 
 export default function AppLayout({ children }) {

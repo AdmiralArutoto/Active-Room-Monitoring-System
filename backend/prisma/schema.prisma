@@ -47,16 +47,13 @@ model Area {
 enum SensorKind {
   MOTION
   LIGHT
-  TEMPERATURE
-  DOOR
-  OTHER
 }
 
 model Sensor {
   id           String       @id @default(uuid())
   sensor_key   String       @unique
   name         String
-  kind         SensorKind   @default(OTHER)
+  kind         SensorKind
   room_area_id String?
   room         Area?        @relation(fields: [room_area_id], references: [id])
   is_active    Boolean      @default(true)
@@ -64,6 +61,8 @@ model Sensor {
   created_at   DateTime     @default(now())
   state        SensorState?
   events       SensorEvent[]
+
+  @@unique([room_area_id, kind])
 }
 
 model SensorState {
@@ -82,4 +81,7 @@ model SensorEvent {
   ts         DateTime
   raw        Json?
   created_at DateTime @default(now())
+
+  @@index([sensor_id, ts(sort: Desc)])
+  @@index([ts(sort: Desc)])
 }

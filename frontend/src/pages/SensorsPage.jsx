@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { sh } from '../styles/shared';
 
-const KINDS = ['MOTION', 'LIGHT', 'TEMPERATURE', 'DOOR', 'OTHER'];
+const KINDS = ['MOTION', 'LIGHT'];
 
 const emptyForm = { name: '', kind: 'MOTION', room_area_id: '', metadata: '' };
 
@@ -205,6 +205,6 @@ const local = {
   row:       { display: 'flex', alignItems: 'center', gap: 10, padding: '8px', borderRadius: 4, cursor: 'pointer', marginBottom: 2 },
   kindBadge: (kind) => ({
     fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 3, color: '#fff', flexShrink: 0,
-    background: { MOTION: '#7c3aed', LIGHT: '#d97706', TEMPERATURE: '#0891b2', DOOR: '#059669', OTHER: '#6b7280' }[kind] ?? '#6b7280',
+    background: { MOTION: '#7c3aed', LIGHT: '#d97706'}[kind] ?? '#6b7280',
   }),
 };

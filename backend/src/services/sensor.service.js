@@ -49,12 +49,17 @@ async function createSensor({ name, kind, room_area_id, metadata }) {
   if (!room) throw Object.assign(new Error('Room area not found'), { status: 404 });
   if (room.type !== 'ROOM') throw Object.assign(new Error('Sensor must be linked to a ROOM area'), { status: 400 });
 
+  if (kind) {
+    const existing = await sensorRepo.findByRoomAndKind(room_area_id, kind);
+    if (existing) throw Object.assign(new Error(`A ${kind} sensor already exists in this room`), { status: 409 });
+  }
+
   const sensor_key = await buildSensorKey(room_area_id, name);
 
   return sensorRepo.create({
     sensor_key,
     name,
-    kind: kind ?? 'OTHER',
+    kind,
     room_area_id,
     metadata: metadata ?? undefined,
   });
@@ -62,12 +67,19 @@ async function createSensor({ name, kind, room_area_id, metadata }) {
 
 // Updates sensor fields. If room_area_id is provided, validates it still points to a ROOM. Throws 404 if sensor not found.
 async function updateSensor(id, { name, kind, room_area_id, metadata }) {
-  await getSensor(id);
+  const sensor = await getSensor(id);
 
   if (room_area_id) {
     const room = await areaRepo.findById(room_area_id);
     if (!room) throw Object.assign(new Error('Room area not found'), { status: 404 });
     if (room.type !== 'ROOM') throw Object.assign(new Error('Sensor must be linked to a ROOM area'), { status: 400 });
+  }
+
+  const effectiveRoom = room_area_id ?? sensor.room_area_id;
+  const effectiveKind = kind ?? sensor.kind;
+  if (effectiveRoom && (kind !== undefined || room_area_id !== undefined)) {
+    const existing = await sensorRepo.findByRoomAndKind(effectiveRoom, effectiveKind);
+    if (existing && existing.id !== id) throw Object.assign(new Error(`A ${effectiveKind} sensor already exists in this room`), { status: 409 });
   }
 
   return sensorRepo.update(id, {
