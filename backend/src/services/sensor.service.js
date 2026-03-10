@@ -30,7 +30,7 @@ async function buildSensorKey(room_area_id, name) {
   if (!floor?.code)    throw Object.assign(new Error('Floor is missing a code — set it before registering sensors'), { status: 400 });
   if (!room?.code)     throw Object.assign(new Error('Room is missing a code — set it before registering sensors'), { status: 400 });
 
-  const base = `${building.code}.${floor.code}.${room.code}.${slugify(name)}`;
+  const base = `${building.code}.${floor.code}.${room.code}.${slugify(name)}`.toLowerCase();
 
   // Ensure uniqueness — append _2, _3 etc if needed
   let key = base;

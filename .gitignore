@@ -11,3 +11,4 @@ logs/
 .vscode/settings.json
 .idea/
 package-lock.json
+figma/

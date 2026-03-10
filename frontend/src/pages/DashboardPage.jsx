@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+const SENSOR_KINDS = ['MOTION', 'LIGHT'];
+
 // ── Icon dimensions ───────────────────────────────────────────────────────────
 const ICON_W = 80;
 const ICON_H = 36;
@@ -199,6 +201,9 @@ export default function DashboardPage() {
   // Card info panel
   const [infoCard, setInfoCard] = useState(null); // 'building' | 'floor' | 'room' | null
   const [infoSensors, setInfoSensors] = useState([]);
+
+  // Sensor creation (from room card)
+  const [sensorForm, setSensorForm] = useState({ name: '', kind: 'MOTION' });
 
   // Sensor state polling
   const [sensors, setSensors] = useState([]);
@@ -474,6 +479,29 @@ export default function DashboardPage() {
     } catch { setInfoSensors([]); }
   }
 
+  // ── Add sensor from room card ──────────────────────────────────────────────
+  function openSensorModal() {
+    setSensorForm({ name: '', kind: 'MOTION' });
+    setModal('sensor');
+    setModalError(null);
+  }
+
+  async function handleCreateSensor(e) {
+    e.preventDefault();
+    if (!sensorForm.name.trim()) { setModalError('Name is required'); return; }
+    setModalError(null);
+    try {
+      await api.post('/sensors', {
+        name: sensorForm.name.trim(),
+        kind: sensorForm.kind,
+        room_area_id: selRoom.id,
+      });
+      closeModal();
+      // Refresh sensors list so room icons update
+      api.get('/sensors').then(setSensors).catch(() => {});
+    } catch (err) { setModalError(err.message); }
+  }
+
   // ── Canvas scale helpers ──────────────────────────────────────────────────────
   function stageScale() {
     if (!imgNatural) return 1;
@@ -634,6 +662,7 @@ export default function DashboardPage() {
               <div style={d.cardHead}>
                 <span style={d.cardType}>{type.charAt(0).toUpperCase() + type.slice(1)}</span>
                 <div style={{ display: 'flex', gap: 4 }}>
+                  {isAdmin && type === 'room' && <button style={d.cardBtn} onClick={openSensorModal} title="Add sensor">+S</button>}
                   {isAdmin && canMove && <button style={d.cardBtn} onClick={() => handleMoveIcon(type)} title="Move icon">↔</button>}
                   {isAdmin && <button style={d.cardBtn} onClick={() => openCardEdit(type, area)} title="Edit">✎</button>}
                   <button style={d.cardBtn} onClick={() => infoCard === type ? setInfoCard(null) : openCardInfo(type, area)} title="Info">ⓘ</button>
@@ -752,6 +781,24 @@ export default function DashboardPage() {
             </p>
             <div style={m.actions}>
               <button style={m.btn} type="submit">Create & Place</button>
+              <button style={m.btnGray} type="button" onClick={closeModal}>Cancel</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {modal === 'sensor' && selRoom && (
+        <Modal title={`Add Sensor — ${selRoom.name}`} onClose={closeModal}>
+          <form onSubmit={handleCreateSensor} style={m.form}>
+            {modalError && <p style={m.error}>{modalError}</p>}
+            <label style={m.label}>Name</label>
+            <input style={m.input} value={sensorForm.name} onChange={e => setSensorForm(f => ({ ...f, name: e.target.value }))} required autoFocus />
+            <label style={m.label}>Kind</label>
+            <select style={m.input} value={sensorForm.kind} onChange={e => setSensorForm(f => ({ ...f, kind: e.target.value }))}>
+              {SENSOR_KINDS.map(k => <option key={k}>{k}</option>)}
+            </select>
+            <div style={m.actions}>
+              <button style={m.btn} type="submit">Add Sensor</button>
               <button style={m.btnGray} type="button" onClick={closeModal}>Cancel</button>
             </div>
           </form>
