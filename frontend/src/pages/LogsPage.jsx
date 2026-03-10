@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { sh } from '../styles/shared';
+import { colors, container } from '../styles/shared';
 
 const LIMIT = 50;
-
-const KIND_COLORS = { MOTION: '#7c3aed', LIGHT: '#d97706' };
 
 export default function LogsPage() {
   const [events, setEvents] = useState([]);
@@ -14,10 +12,7 @@ export default function LogsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    api.get('/sensors').then(setSensors).catch(() => {});
-  }, []);
-
+  useEffect(() => { api.get('/sensors').then(setSensors).catch(() => {}); }, []);
   useEffect(() => { fetchEvents(0, true); }, []);
 
   async function fetchEvents(newOffset, replace) {
@@ -29,7 +24,6 @@ export default function LogsPage() {
       if (filters.to) params.set('to', new Date(filters.to).toISOString());
       params.set('limit', LIMIT);
       params.set('offset', newOffset);
-
       const data = await api.get(`/events?${params}`);
       setEvents(prev => replace ? data : [...prev, ...data]);
       setOffset(newOffset);
@@ -38,120 +32,103 @@ export default function LogsPage() {
     setLoading(false);
   }
 
-  function handleApply() {
-    fetchEvents(0, true);
-  }
-
-  function handleLoadMore() {
-    fetchEvents(offset + LIMIT, false);
-  }
-
+  function handleApply() { fetchEvents(0, true); }
+  function handleLoadMore() { fetchEvents(offset + LIMIT, false); }
   function handleClear() {
     setFilters({ sensor_id: '', from: '', to: '' });
     setTimeout(() => fetchEvents(0, true), 0);
   }
 
+  function valueBadge(value) {
+    const v = value?.toLowerCase();
+    if (v === 'on' || v === 'active' || v === 'detected') return { text: 'ON', bg: colors.sensorOn, color: '#fff' };
+    if (v === 'off' || v === 'idle') return { text: 'OFF', bg: colors.actionOff, color: '#fff' };
+    if (v === 'fault' || v === 'error') return { text: value, bg: '#eab308', color: '#fff' };
+    return { text: value ?? '—', bg: colors.compBg, color: colors.textPrime };
+  }
+
   return (
     <div style={s.root}>
+      <div style={s.cont}>
+      <h2 style={s.pageTitle}>Logs</h2>
+
       {/* Filter bar */}
       <div style={s.filterBar}>
-        <select
-          style={s.filterInput}
-          value={filters.sensor_id}
-          onChange={e => setFilters(f => ({ ...f, sensor_id: e.target.value }))}
-        >
-          <option value="">All Sensors</option>
-          {sensors.map(sen => (
-            <option key={sen.id} value={sen.id}>{sen.name} ({sen.sensor_key})</option>
-          ))}
-        </select>
+        <div style={s.filterWrap}>
+          <span style={s.filterIcon}>▼</span>
+          <select style={s.filterSelect} value={filters.sensor_id} onChange={e => setFilters(f => ({ ...f, sensor_id: e.target.value }))}>
+            <option value="">Filter</option>
+            {sensors.map(sen => <option key={sen.id} value={sen.id}>{sen.name} ({sen.sensor_key})</option>)}
+          </select>
+        </div>
 
-        <label style={s.filterLabel}>From</label>
-        <input
-          type="datetime-local"
-          style={s.filterInput}
-          value={filters.from}
-          onChange={e => setFilters(f => ({ ...f, from: e.target.value }))}
-        />
+        <input type="date" style={s.dateInput} value={filters.from} onChange={e => setFilters(f => ({ ...f, from: e.target.value }))} />
+        <input type="date" style={s.dateInput} value={filters.to} onChange={e => setFilters(f => ({ ...f, to: e.target.value }))} />
 
-        <label style={s.filterLabel}>To</label>
-        <input
-          type="datetime-local"
-          style={s.filterInput}
-          value={filters.to}
-          onChange={e => setFilters(f => ({ ...f, to: e.target.value }))}
-        />
-
-        <button style={sh.btnSm} onClick={handleApply}>Apply</button>
-        <button style={sh.btnSmGray} onClick={handleClear}>Clear</button>
+        <button style={s.applyBtn} onClick={handleApply}>Apply</button>
+        <button style={s.clearBtn} onClick={handleClear}>Clear</button>
       </div>
 
-      {/* Events table */}
+      {/* Table */}
       <div style={s.tableWrap}>
         <table style={s.table}>
           <thead>
-            <tr>
-              <th style={s.th}>Timestamp</th>
-              <th style={s.th}>Sensor</th>
-              <th style={s.th}>Key</th>
-              <th style={s.th}>Value</th>
+            <tr style={s.headRow}>
+              <th style={s.th}>DATE / TIME</th>
+              <th style={s.th}>KEY</th>
+              <th style={s.th}>SENSOR</th>
+              <th style={s.th}>VALUE</th>
             </tr>
           </thead>
           <tbody>
-            {events.map(ev => (
-              <tr key={ev.id} style={s.tr}>
-                <td style={s.td}>{new Date(ev.ts).toLocaleString()}</td>
-                <td style={s.td}>
-                  <span style={s.kindDot(ev.sensor?.kind)} />
-                  {ev.sensor?.name ?? '—'}
-                </td>
-                <td style={{ ...s.td, fontFamily: 'monospace', fontSize: 11 }}>{ev.sensor?.sensor_key ?? '—'}</td>
-                <td style={s.td}>
-                  <span style={s.valueBadge(ev.value)}>{ev.value}</span>
-                </td>
-              </tr>
-            ))}
+            {events.map(ev => {
+              const badge = valueBadge(ev.value);
+              return (
+                <tr key={ev.id} style={s.row}>
+                  <td style={s.td}>{new Date(ev.ts).toLocaleDateString()}, {new Date(ev.ts).toLocaleTimeString()}</td>
+                  <td style={s.td}><span style={{ fontFamily: 'monospace', fontSize: 12 }}>{ev.sensor?.sensor_key ?? '—'}</span></td>
+                  <td style={s.td}>{ev.sensor?.kind?.toLowerCase() ?? '—'}</td>
+                  <td style={s.td}>
+                    <span style={{ padding: '2px 10px', borderRadius: 4, fontSize: 12, fontWeight: 600, background: badge.bg, color: badge.color }}>{badge.text}</span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
         {events.length === 0 && !loading && (
-          <p style={{ textAlign: 'center', color: '#9ca3af', marginTop: 32 }}>No events found.</p>
+          <p style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 32 }}>No events found.</p>
         )}
-
-        {loading && (
-          <p style={{ textAlign: 'center', color: '#9ca3af', marginTop: 16 }}>Loading…</p>
-        )}
-
+        {loading && <p style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 16 }}>Loading…</p>}
         {hasMore && !loading && (
           <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <button style={sh.btn} onClick={handleLoadMore}>Load More</button>
+            <button style={s.applyBtn} onClick={handleLoadMore}>Load More</button>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
 }
 
 const s = {
-  root:       { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', background: '#f9fafb' },
-  filterBar:  { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: '#fff', borderBottom: '1px solid #e5e7eb', flexShrink: 0, flexWrap: 'wrap' },
-  filterLabel:{ fontSize: 12, fontWeight: 600, color: '#6b7280' },
-  filterInput:{ padding: '5px 8px', fontSize: 13, border: '1px solid #d1d5db', borderRadius: 4, background: '#fff' },
-  tableWrap:  { flex: 1, overflowY: 'auto', padding: '0 16px 16px' },
+  root:       { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', background: colors.pageBg, overflowY: 'auto' },
+  cont:       { ...container.base, display: 'flex', flexDirection: 'column', paddingBottom: 20 },
+  pageTitle:  { margin: '16px 0 12px', fontSize: 18, fontWeight: 700, color: colors.textPrime },
+
+  filterBar:  { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' },
+  filterWrap: { display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', border: `1px solid ${colors.border}`, borderRadius: 6, background: colors.white },
+  filterIcon: { fontSize: 10, color: colors.textSecondary },
+  filterSelect:{ border: 'none', outline: 'none', fontSize: 13, background: 'transparent', color: colors.textPrime, cursor: 'pointer' },
+  dateInput:  { padding: '5px 10px', fontSize: 13, border: `1px solid ${colors.border}`, borderRadius: 6, background: colors.white, color: colors.textPrime },
+  applyBtn:   { padding: '6px 16px', background: colors.action, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 500 },
+  clearBtn:   { padding: '6px 16px', background: colors.white, color: colors.textPrime, border: `1px solid ${colors.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 13 },
+
+  tableWrap:  { overflowY: 'auto', background: colors.white, borderRadius: 10, border: `1px solid ${colors.border}` },
   table:      { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th:         { textAlign: 'left', padding: '10px 8px', borderBottom: '2px solid #e5e7eb', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6b7280', position: 'sticky', top: 0, background: '#f9fafb' },
-  tr:         { borderBottom: '1px solid #f3f4f6' },
-  td:         { padding: '8px', color: '#374151' },
-  kindDot:    (kind) => ({
-    display: 'inline-block', width: 8, height: 8, borderRadius: '50%', marginRight: 6, verticalAlign: 'middle',
-    background: KIND_COLORS[kind] ?? '#6b7280',
-  }),
-  valueBadge: (value) => {
-    const v = value?.toLowerCase();
-    let bg = '#e5e7eb'; let color = '#374151';
-    if (v === 'on' || v === 'active' || v === 'detected') { bg = '#dcfce7'; color = '#166534'; }
-    else if (v === 'off' || v === 'idle') { bg = '#f1f5f9'; color = '#475569'; }
-    else if (v === 'fault' || v === 'error') { bg = '#fef9c3'; color = '#854d0e'; }
-    return { padding: '2px 8px', borderRadius: 3, fontSize: 12, fontWeight: 600, background: bg, color };
-  },
+  headRow:    { background: colors.compBg },
+  th:         { textAlign: 'left', padding: '10px 12px', fontSize: 11, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: `1px solid ${colors.border}` },
+  row:        { borderBottom: `1px solid ${colors.border}` },
+  td:         { padding: '10px 12px', color: colors.textPrime, fontSize: 13 },
 };

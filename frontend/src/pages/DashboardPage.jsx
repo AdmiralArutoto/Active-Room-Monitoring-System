@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Image as KonvaImage, Group, Rect, Text, Circle } from 'react-konva';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { colors, container } from '../styles/shared';
+
+import iconPlus from '../assets/icons/Vector-plus.png';
+import iconMove from '../assets/icons/Vector-move.png';
+import iconEdit from '../assets/icons/Vector-edit.png';
+import iconTrash from '../assets/icons/Vector-trash.png';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -16,10 +22,10 @@ const SENSOR_DOT_R = 4;
 
 // ── Sensor state → color mapping ─────────────────────────────────────────────
 const STATE_COLORS = {
-  active:       { normal: '#22c55e', selected: '#16a34a' }, // green
-  idle:         { normal: '#64748b', selected: '#475569' }, // blueish-gray
-  fault:        { normal: '#eab308', selected: '#ca8a04' }, // yellow
-  unconfigured: { normal: '#9ca3af', selected: '#6b7280' }, // gray
+  active:       { normal: colors.sensorOn, selected: '#5a9660' },
+  idle:         { normal: colors.sensorIdle, selected: '#7ba8e0' },
+  fault:        { normal: '#eab308', selected: '#ca8a04' },
+  unconfigured: { normal: colors.actionOff, selected: '#6b7280' },
 };
 
 function classifySensorState(stateValue) {
@@ -60,7 +66,7 @@ function Modal({ title, onClose, children }) {
     <div style={m.overlay}>
       <div style={m.box}>
         <div style={m.head}>
-          <span style={{ fontWeight: 700, fontSize: 15 }}>{title}</span>
+          <span style={{ fontWeight: 700, fontSize: 15, color: colors.textPrime }}>{title}</span>
           <button style={m.closeBtn} onClick={onClose}>✕</button>
         </div>
         {children}
@@ -72,34 +78,9 @@ function Modal({ title, onClose, children }) {
 // ── Area icon on canvas ───────────────────────────────────────────────────────
 function AreaIcon({ area, color, draggable, onDragEnd, onClick, onDblClick }) {
   return (
-    <Group
-      x={area.map_x}
-      y={area.map_y}
-      draggable={draggable}
-      onDragEnd={e => onDragEnd(area, e.target.x(), e.target.y())}
-      onClick={() => onClick(area)}
-      onDblClick={() => onDblClick?.(area)}
-    >
-      <Rect
-        width={ICON_W}
-        height={ICON_H}
-        fill={color}
-        cornerRadius={4}
-        shadowBlur={4}
-        shadowOpacity={0.2}
-        shadowOffsetY={2}
-      />
-      <Text
-        text={area.name}
-        width={ICON_W}
-        height={ICON_H}
-        align="center"
-        verticalAlign="middle"
-        fontSize={11}
-        fontStyle="bold"
-        fill="#fff"
-        listening={false}
-      />
+    <Group x={area.map_x} y={area.map_y} draggable={draggable} onDragEnd={e => onDragEnd(area, e.target.x(), e.target.y())} onClick={() => onClick(area)} onDblClick={() => onDblClick?.(area)}>
+      <Rect width={ICON_W} height={ICON_H} fill={color} cornerRadius={4} shadowBlur={4} shadowOpacity={0.2} shadowOffsetY={2} />
+      <Text text={area.name} width={ICON_W} height={ICON_H} align="center" verticalAlign="middle" fontSize={11} fontStyle="bold" fill="#fff" listening={false} />
     </Group>
   );
 }
@@ -114,46 +95,22 @@ function RoomIcon({ area, color, roomSensors, sensorStates, draggable, onDragEnd
   const dotStartX = (ROOM_ICON_W - totalDotsW) / 2;
 
   return (
-    <Group
-      x={area.map_x}
-      y={area.map_y}
-      draggable={draggable}
-      onDragEnd={e => onDragEnd(area, e.target.x(), e.target.y())}
-      onClick={() => onClick(area)}
-    >
-      <Rect
-        width={ROOM_ICON_W}
-        height={h}
-        fill={color}
-        cornerRadius={4}
-        shadowBlur={4}
-        shadowOpacity={0.2}
-        shadowOffsetY={2}
-      />
-      <Text
-        text={area.name}
-        width={ROOM_ICON_W}
-        height={labelH}
-        align="center"
-        verticalAlign="middle"
-        fontSize={11}
-        fontStyle="bold"
-        fill="#fff"
-        listening={false}
-      />
+    <Group x={area.map_x} y={area.map_y} draggable={draggable} onDragEnd={e => onDragEnd(area, e.target.x(), e.target.y())} onClick={() => onClick(area)}>
+      <Rect width={ROOM_ICON_W} height={h} fill={color} cornerRadius={4} shadowBlur={4} shadowOpacity={0.2} shadowOffsetY={2} />
+      <Text text={area.name} width={ROOM_ICON_W} height={labelH} align="center" verticalAlign="middle" fontSize={11} fontStyle="bold" fill="#fff" listening={false} />
       {hasDots && roomSensors.map((s, i) => (
-        <Circle
-          key={s.id}
-          x={dotStartX + i * (SENSOR_DOT_R * 2 + 4) + SENSOR_DOT_R}
-          y={dotY}
-          radius={SENSOR_DOT_R}
-          fill={getSensorDotColor(s, sensorStates)}
-          stroke="rgba(255,255,255,0.5)"
-          strokeWidth={1}
-          listening={false}
-        />
+        <Circle key={s.id} x={dotStartX + i * (SENSOR_DOT_R * 2 + 4) + SENSOR_DOT_R} y={dotY} radius={SENSOR_DOT_R} fill={getSensorDotColor(s, sensorStates)} stroke="rgba(255,255,255,0.5)" strokeWidth={1} listening={false} />
       ))}
     </Group>
+  );
+}
+
+// ── Icon button helper ──────────────────────────────────────────────────────
+function IconBtn({ src, title, onClick, tint }) {
+  return (
+    <button onClick={onClick} title={title} style={{ ...d.iconBtn, ...(tint === 'red' ? { filter: 'brightness(0) saturate(100%) invert(47%) sepia(72%) saturate(2039%) hue-rotate(335deg) brightness(97%) contrast(92%)' } : {}) }}>
+      <img src={src} alt={title} style={{ width: 14, height: 14 }} />
+    </button>
   );
 }
 
@@ -162,50 +119,29 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
-  // Site
   const [site, setSite] = useState(null);
   const [siteLoaded, setSiteLoaded] = useState(false);
-
-  // Area tree
   const [buildings, setBuildings] = useState([]);
   const [floors, setFloors] = useState([]);
   const [rooms, setRooms] = useState([]);
-
-  // Selection
   const [selBuilding, setSelBuilding] = useState(null);
   const [selFloor, setSelFloor] = useState(null);
   const [selRoom, setSelRoom] = useState(null);
-
-  // Canvas image
   const [bgImage, setBgImage] = useState(null);
-  const [imgNatural, setImgNatural] = useState(null); // { w, h }
+  const [imgNatural, setImgNatural] = useState(null);
   const containerRef = useRef(null);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
-
-  // Placement mode: null | 'click' (new icon) | 'drag' (move existing icon)
   const [placingMode, setPlacingMode] = useState(null);
   const [placingArea, setPlacingArea] = useState(null);
-
-  // Modal state: null | 'site' | 'building' | 'floor' | 'room'
   const [modal, setModal] = useState(null);
   const [modalError, setModalError] = useState(null);
-
-  // Form fields (modal)
   const [form, setForm] = useState({ name: '', code: '', description: '', file: null });
-
-  // Card editing
-  const [editingCard, setEditingCard] = useState(null); // 'building' | 'floor' | 'room' | null
+  const [editingCard, setEditingCard] = useState(null);
   const [cardForm, setCardForm] = useState({ name: '', code: '' });
   const [cardError, setCardError] = useState(null);
-
-  // Card info panel
-  const [infoCard, setInfoCard] = useState(null); // 'building' | 'floor' | 'room' | null
+  const [activeTab, setActiveTab] = useState('building');
   const [infoSensors, setInfoSensors] = useState([]);
-
-  // Sensor creation (from room card)
   const [sensorForm, setSensorForm] = useState({ name: '', kind: 'MOTION' });
-
-  // Sensor state polling
   const [sensors, setSensors] = useState([]);
   const [sensorStates, setSensorStates] = useState({});
 
@@ -220,21 +156,15 @@ export default function DashboardPage() {
     return () => ro.disconnect();
   }, []);
 
-  // ── Load site on mount ───────────────────────────────────────────────────────
   useEffect(() => {
     api.get('/areas/site').then(data => {
-      setSite(data);
-      setSiteLoaded(true);
+      setSite(data); setSiteLoaded(true);
       if (data) loadBuildings(data.id);
     }).catch(() => setSiteLoaded(true));
   }, []);
 
-  // ── Load sensors on mount ───────────────────────────────────────────────────
-  useEffect(() => {
-    api.get('/sensors').then(setSensors).catch(() => {});
-  }, []);
+  useEffect(() => { api.get('/sensors').then(setSensors).catch(() => {}); }, []);
 
-  // ── Poll sensor states every 5s ────────────────────────────────────────────
   useEffect(() => {
     let active = true;
     const poll = () => api.get('/api/states').then(data => { if (active) setSensorStates(data); }).catch(() => {});
@@ -243,9 +173,7 @@ export default function DashboardPage() {
     return () => { active = false; clearInterval(id); };
   }, []);
 
-  // ── Load map image ───────────────────────────────────────────────────────────
   useEffect(() => {
-    // Determine which area owns the current map
     const mapArea = selFloor ?? site;
     if (!mapArea?.image_path) { setBgImage(null); setImgNatural(null); return; }
     const img = new window.Image();
@@ -254,18 +182,32 @@ export default function DashboardPage() {
     img.onerror = () => { setBgImage(null); setImgNatural(null); };
   }, [site, selFloor]);
 
+  // Auto-set active tab
+  useEffect(() => {
+    if (selRoom) setActiveTab('room');
+    else if (selFloor) setActiveTab('floor');
+    else if (selBuilding) setActiveTab('building');
+  }, [selBuilding, selFloor, selRoom]);
+
+  // Load sensors for room tab
+  useEffect(() => {
+    if (activeTab === 'room' && selRoom) {
+      api.get('/sensors').then(all => setInfoSensors(all.filter(s => s.room_area_id === selRoom.id))).catch(() => setInfoSensors([]));
+    } else {
+      setInfoSensors([]);
+    }
+  }, [activeTab, selRoom]);
+
   // ── Data loaders ─────────────────────────────────────────────────────────────
   async function loadBuildings(siteId) {
     const data = await api.get(`/areas/${siteId}/children`);
     setBuildings(data.filter(a => a.type === 'BUILDING'));
   }
-
   async function loadFloors(buildingId) {
     const data = await api.get(`/areas/${buildingId}/children`);
     setFloors(data.filter(a => a.type === 'FLOOR'));
     setRooms([]);
   }
-
   async function loadRooms(floorId) {
     const data = await api.get(`/areas/${floorId}/children`);
     setRooms(data.filter(a => a.type === 'ROOM'));
@@ -277,23 +219,17 @@ export default function DashboardPage() {
     if (!id) { setSelBuilding(null); setSelFloor(null); setSelRoom(null); setFloors([]); setRooms([]); return; }
     if (id === '__create__') { openModal('building'); return; }
     const b = buildings.find(x => x.id === id);
-    setSelBuilding(b);
-    setSelFloor(null);
-    setSelRoom(null);
-    setRooms([]);
+    setSelBuilding(b); setSelFloor(null); setSelRoom(null); setRooms([]);
     await loadFloors(b.id);
   }
-
   async function handleSelectFloor(e) {
     const id = e.target.value;
     if (!id) { setSelFloor(null); setSelRoom(null); setRooms([]); return; }
     if (id === '__create__') { openModal('floor'); return; }
     const f = floors.find(x => x.id === id);
-    setSelFloor(f);
-    setSelRoom(null);
+    setSelFloor(f); setSelRoom(null);
     await loadRooms(f.id);
   }
-
   function handleSelectRoom(e) {
     const id = e.target.value;
     if (!id) { setSelRoom(null); return; }
@@ -302,139 +238,81 @@ export default function DashboardPage() {
   }
 
   // ── Modal helpers ────────────────────────────────────────────────────────────
-  function openModal(type) {
-    setModal(type);
-    setForm({ name: '', code: '', description: '', file: null });
-    setModalError(null);
-  }
+  function openModal(type) { setModal(type); setForm({ name: '', code: '', description: '', file: null }); setModalError(null); }
+  function closeModal() { setModal(null); setModalError(null); setPlacingMode(null); setPlacingArea(null); }
 
-  function closeModal() {
-    setModal(null);
-    setModalError(null);
-    setPlacingMode(null);
-    setPlacingArea(null);
-  }
-
-  // ── Create site ──────────────────────────────────────────────────────────────
+  // ── Create handlers ──────────────────────────────────────────────────────────
   async function handleCreateSite(e) {
     e.preventDefault();
     if (!form.file) { setModalError('Map image is required'); return; }
     setModalError(null);
     try {
       const created = await api.post('/areas', { name: form.name.trim(), type: 'SITE' });
-      const fd = new FormData();
-      fd.append('image', form.file);
+      const fd = new FormData(); fd.append('image', form.file);
       const updated = await api.upload(`/areas/${created.id}/image`, fd);
-      setSite(updated);
-      closeModal();
-      loadBuildings(updated.id);
+      setSite(updated); closeModal(); loadBuildings(updated.id);
     } catch (err) { setModalError(err.message); }
   }
-
-  // ── Create building (form step, then placement) ───────────────────────────────
   async function handleCreateBuilding(e) {
     e.preventDefault();
     if (!form.name.trim() || !form.code.trim()) { setModalError('Name and code are required'); return; }
     setModalError(null);
     try {
-      const created = await api.post('/areas', {
-        name: form.name.trim(),
-        code: form.code.trim(),
-        type: 'BUILDING',
-        parent_id: site.id,
-        description: form.description.trim() || undefined,
-      });
-      setModal(null);
-      setPlacingArea(created);
-      setPlacingMode('click');
+      const created = await api.post('/areas', { name: form.name.trim(), code: form.code.trim(), type: 'BUILDING', parent_id: site.id, description: form.description.trim() || undefined });
+      setModal(null); setPlacingArea(created); setPlacingMode('click');
     } catch (err) { setModalError(err.message); }
   }
-
-  // ── Create floor (form step, then file upload) ───────────────────────────────
   async function handleCreateFloor(e) {
     e.preventDefault();
     if (!form.code.trim()) { setModalError('Code is required'); return; }
     if (!form.file) { setModalError('Map image is required'); return; }
     setModalError(null);
     try {
-      const created = await api.post('/areas', {
-        name: form.code.trim(),
-        code: form.code.trim(),
-        type: 'FLOOR',
-        parent_id: selBuilding.id,
-        description: form.description.trim() || undefined,
-      });
-      const fd = new FormData();
-      fd.append('image', form.file);
+      const created = await api.post('/areas', { name: form.code.trim(), code: form.code.trim(), type: 'FLOOR', parent_id: selBuilding.id, description: form.description.trim() || undefined });
+      const fd = new FormData(); fd.append('image', form.file);
       await api.upload(`/areas/${created.id}/image`, fd);
-      closeModal();
-      await loadFloors(selBuilding.id);
+      closeModal(); await loadFloors(selBuilding.id);
     } catch (err) { setModalError(err.message); }
   }
-
-  // ── Create room (form step, then placement) ───────────────────────────────────
   async function handleCreateRoom(e) {
     e.preventDefault();
     if (!form.name.trim() || !form.code.trim()) { setModalError('Name and code are required'); return; }
     setModalError(null);
     try {
-      const created = await api.post('/areas', {
-        name: form.name.trim(),
-        code: form.code.trim(),
-        type: 'ROOM',
-        parent_id: selFloor.id,
-        description: form.description.trim() || undefined,
-      });
-      setModal(null);
-      setPlacingArea(created);
-      setPlacingMode('click');
+      const created = await api.post('/areas', { name: form.name.trim(), code: form.code.trim(), type: 'ROOM', parent_id: selFloor.id, description: form.description.trim() || undefined });
+      setModal(null); setPlacingArea(created); setPlacingMode('click');
     } catch (err) { setModalError(err.message); }
   }
 
-  // ── Canvas click — place icon ─────────────────────────────────────────────────
+  // ── Canvas handlers ─────────────────────────────────────────────────────────
   async function handleStageClick(e) {
     if (placingMode !== 'click' || !placingArea) return;
     const stage = e.target.getStage();
     const pos = stage.getPointerPosition();
-    const scale = stageScale();
-    const x = pos.x / scale - ICON_W / 2;
-    const y = pos.y / scale - ICON_H / 2;
+    const sc = stageScale();
+    const x = pos.x / sc - ICON_W / 2;
+    const y = pos.y / sc - ICON_H / 2;
     try {
       const updated = await api.patch(`/areas/${placingArea.id}/position`, { map_x: x, map_y: y });
       setPlacingMode(null);
-      if (placingArea.type === 'BUILDING') {
-        setBuildings(prev => [...prev.filter(b => b.id !== updated.id), updated]);
-        setSelBuilding(updated);
-        await loadFloors(updated.id);
-      } else if (placingArea.type === 'ROOM') {
-        setRooms(prev => [...prev.filter(r => r.id !== updated.id), updated]);
-        setSelRoom(updated);
-      }
+      if (placingArea.type === 'BUILDING') { setBuildings(prev => [...prev.filter(b => b.id !== updated.id), updated]); setSelBuilding(updated); await loadFloors(updated.id); }
+      else if (placingArea.type === 'ROOM') { setRooms(prev => [...prev.filter(r => r.id !== updated.id), updated]); setSelRoom(updated); }
       setPlacingArea(null);
     } catch (err) { console.error(err); }
   }
-
-  // ── Drag end — update position ────────────────────────────────────────────────
   async function handleDragEnd(area, x, y) {
     try {
       const updated = await api.patch(`/areas/${area.id}/position`, { map_x: x, map_y: y });
       if (area.type === 'BUILDING') setBuildings(prev => prev.map(b => b.id === updated.id ? updated : b));
       if (area.type === 'ROOM') setRooms(prev => prev.map(r => r.id === updated.id ? updated : r));
-      setPlacingMode(null);
-      setPlacingArea(null);
+      setPlacingMode(null); setPlacingArea(null);
     } catch (err) { console.error(err); }
   }
 
-  // ── Card edit/delete handlers ─────────────────────────────────────────────────
-  function openCardEdit(type, area) {
-    setEditingCard(type);
-    setCardForm({ name: area.name ?? '', code: area.code ?? '' });
-    setCardError(null);
-  }
-
+  // ── Card edit/delete ─────────────────────────────────────────────────────────
+  function openCardEdit(type, area) { setEditingCard(type); setCardForm({ name: area.name ?? '', code: area.code ?? '' }); setCardError(null); }
   async function handleSaveCard(e, type) {
-    e.preventDefault();
-    setCardError(null);
+    e.preventDefault(); setCardError(null);
     try {
       const target = type === 'building' ? selBuilding : type === 'floor' ? selFloor : selRoom;
       const updated = await api.put(`/areas/${target.id}`, { name: cardForm.name, code: cardForm.code || undefined });
@@ -444,61 +322,28 @@ export default function DashboardPage() {
       setEditingCard(null);
     } catch (err) { setCardError(err.message); }
   }
-
   async function handleDeleteCard(type) {
     const target = type === 'building' ? selBuilding : type === 'floor' ? selFloor : selRoom;
     if (!confirm(`Delete ${type} "${target.name}"?`)) return;
     try {
       await api.delete(`/areas/${target.id}`);
       if (type === 'room') { setSelRoom(null); setRooms(prev => prev.filter(r => r.id !== target.id)); }
-      else if (type === 'floor') {
-        setSelFloor(null); setSelRoom(null); setRooms([]);
-        setFloors(prev => prev.filter(f => f.id !== target.id));
-      } else {
-        setSelBuilding(null); setSelFloor(null); setSelRoom(null); setFloors([]); setRooms([]);
-        setBuildings(prev => prev.filter(b => b.id !== target.id));
-      }
+      else if (type === 'floor') { setSelFloor(null); setSelRoom(null); setRooms([]); setFloors(prev => prev.filter(f => f.id !== target.id)); }
+      else { setSelBuilding(null); setSelFloor(null); setSelRoom(null); setFloors([]); setRooms([]); setBuildings(prev => prev.filter(b => b.id !== target.id)); }
     } catch (err) { alert(err.message); }
   }
+  function handleMoveIcon(type) { setPlacingArea(type === 'building' ? selBuilding : selRoom); setPlacingMode('drag'); }
 
-  function handleMoveIcon(type) {
-    const target = type === 'building' ? selBuilding : selRoom;
-    setPlacingArea(target);
-    setPlacingMode('drag');
-  }
-
-  async function openCardInfo(type, area) {
-    setInfoCard(type);
-    setEditingCard(null);
-    try {
-      const all = await api.get('/sensors');
-      const matchIds = type === 'room'
-        ? [area.id]
-        : rooms.map(r => r.id);
-      setInfoSensors(all.filter(s => matchIds.includes(s.room_area_id)));
-    } catch { setInfoSensors([]); }
-  }
-
-  // ── Add sensor from room card ──────────────────────────────────────────────
-  function openSensorModal() {
-    setSensorForm({ name: '', kind: 'MOTION' });
-    setModal('sensor');
-    setModalError(null);
-  }
-
+  // ── Sensor creation ─────────────────────────────────────────────────────────
+  function openSensorModal() { setSensorForm({ name: '', kind: 'MOTION' }); setModal('sensor'); setModalError(null); }
   async function handleCreateSensor(e) {
     e.preventDefault();
     if (!sensorForm.name.trim()) { setModalError('Name is required'); return; }
     setModalError(null);
     try {
-      await api.post('/sensors', {
-        name: sensorForm.name.trim(),
-        kind: sensorForm.kind,
-        room_area_id: selRoom.id,
-      });
+      await api.post('/sensors', { name: sensorForm.name.trim(), kind: sensorForm.kind, room_area_id: selRoom.id });
       closeModal();
-      // Refresh sensors list so room icons update
-      api.get('/sensors').then(setSensors).catch(() => {});
+      api.get('/sensors').then(all => { setSensors(all); setInfoSensors(all.filter(s => s.room_area_id === selRoom.id)); }).catch(() => {});
     } catch (err) { setModalError(err.message); }
   }
 
@@ -507,210 +352,154 @@ export default function DashboardPage() {
     if (!imgNatural) return 1;
     return Math.min(containerSize.w / imgNatural.w, containerSize.h / imgNatural.h, 1);
   }
-
   const scale = stageScale();
   const stageW = imgNatural ? imgNatural.w * scale : containerSize.w;
   const stageH = imgNatural ? imgNatural.h * scale : containerSize.h;
-
-  // ── Which icons to show ───────────────────────────────────────────────────────
-  // Site map: show building icons. Floor map: show room icons.
   const showBuildings = !selFloor;
   const showRooms = !!selFloor;
+  const tabArea = activeTab === 'building' ? selBuilding : activeTab === 'floor' ? selFloor : selRoom;
+  const canMove = activeTab === 'building' || activeTab === 'room';
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div style={d.root}>
+      <div style={d.container}>
+      <div style={d.titleRow}><h2 style={d.pageTitle}>Dashboard</h2></div>
 
-      {/* ── Top bar: controls + site action ── */}
-      {site && (
-        <div style={d.topBar}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {/* Building dropdown */}
+      <div style={d.controlRow}>
+        <button style={d.siteBtn} onClick={() => { setSelBuilding(null); setSelFloor(null); setSelRoom(null); setFloors([]); setRooms([]); }}>
+          {site?.name ?? 'Site Name'}
+        </button>
+        {site && (
+          <div style={d.dropdowns}>
             <select style={d.select} value={selBuilding?.id ?? ''} onChange={handleSelectBuilding}>
-              <option value="">— Building —</option>
+              <option value="">Building</option>
               {buildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              {isAdmin && <option value="__create__">+ Create Building</option>}
+              {isAdmin && <option value="__create__">+ Add Building</option>}
             </select>
-
-            {/* Floor dropdown */}
-            {selBuilding && (
-              <select style={d.select} value={selFloor?.id ?? ''} onChange={handleSelectFloor}>
-                <option value="">— Floor —</option>
-                {floors.map(f => <option key={f.id} value={f.id}>{f.code}</option>)}
-                {isAdmin && <option value="__create__">+ Create Floor</option>}
-              </select>
-            )}
-
-            {/* Room dropdown */}
-            {selFloor && (
-              <select style={d.select} value={selRoom?.id ?? ''} onChange={handleSelectRoom}>
-                <option value="">— Room —</option>
-                {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                {isAdmin && <option value="__create__">+ Create Room</option>}
-              </select>
-            )}
+            <select style={d.select} value={selFloor?.id ?? ''} onChange={handleSelectFloor} disabled={!selBuilding}>
+              <option value="">Floor</option>
+              {floors.map(f => <option key={f.id} value={f.id}>{f.code}</option>)}
+              {isAdmin && selBuilding && <option value="__create__">+ Add Floor</option>}
+            </select>
+            <select style={d.select} value={selRoom?.id ?? ''} onChange={handleSelectRoom} disabled={!selFloor}>
+              <option value="">Room</option>
+              {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+              {isAdmin && selFloor && <option value="__create__">+ Add Room</option>}
+            </select>
           </div>
+        )}
+      </div>
 
-          {/* Site action button */}
-          <button
-            style={d.siteBtn}
-            onClick={() => { setSelBuilding(null); setSelFloor(null); setSelRoom(null); setFloors([]); setRooms([]); }}
-          >
-            {site.name}
-          </button>
-        </div>
-      )}
-
-      {/* ── Map area ── */}
-      <div ref={containerRef} style={{ ...d.mapArea, cursor: placingMode === 'click' ? 'crosshair' : 'default' }}>
+      {/* Map card */}
+      <div ref={containerRef} style={{ ...d.mapCard, cursor: placingMode === 'click' ? 'crosshair' : 'default' }}>
         {!siteLoaded ? null
           : !site ? (
             <div style={d.empty}>
-              <p style={{ color: '#9ca3af', marginBottom: 16 }}>No site configured.</p>
-              {isAdmin && <button style={d.createSiteBtn} onClick={() => openModal('site')}>Create Site</button>}
+              {isAdmin
+                ? <span style={d.addSiteText} onClick={() => openModal('site')}>+ Click To Add Site</span>
+                : <p style={{ color: colors.textSecondary }}>No site configured.</p>}
             </div>
           ) : !bgImage ? (
-            <div style={d.empty}>
-              <p style={{ color: '#9ca3af' }}>
-                {selFloor ? `No map for floor ${selFloor.code}.` : 'Loading map…'}
-              </p>
-            </div>
+            <div style={d.empty}><p style={{ color: colors.textSecondary }}>{selFloor ? `No map for floor ${selFloor.code}.` : 'Loading map…'}</p></div>
           ) : (
             <>
               {placingMode && (
                 <div style={d.placingBanner}>
-                  {placingMode === 'click'
-                    ? <>Click the map to place <strong>{placingArea?.name}</strong></>
-                    : <>Drag <strong>{placingArea?.name}</strong> to its new position</>
-                  }
+                  {placingMode === 'click' ? <>Click the map to place <strong>{placingArea?.name}</strong></> : <>Drag <strong>{placingArea?.name}</strong> to its new position</>}
                 </div>
               )}
-              <Stage
-                width={stageW}
-                height={stageH}
-                onClick={handleStageClick}
-                style={{ display: 'block' }}
-              >
+              <Stage width={stageW} height={stageH} onClick={handleStageClick} style={{ display: 'block' }}>
                 <Layer>
                   <KonvaImage image={bgImage} width={stageW} height={stageH} listening={false} />
-
-                  {showBuildings && buildings
-                    .filter(b => b.map_x != null && b.map_y != null)
-                    .map(b => (
-                      <AreaIcon
-                        key={b.id}
-                        area={{ ...b, map_x: b.map_x * scale, map_y: b.map_y * scale }}
-                        color={selBuilding?.id === b.id ? '#1d4ed8' : '#2563eb'}
-                        draggable={placingMode === 'drag' && placingArea?.id === b.id}
-                        onDragEnd={(area, x, y) => handleDragEnd(area, x / scale, y / scale)}
-                        onClick={area => {
-                          const full = buildings.find(x => x.id === area.id);
-                          setSelBuilding(full);
-                          setSelFloor(null);
-                          setSelRoom(null);
-                          setRooms([]);
-                          loadFloors(full.id);
-                        }}
-                        onDblClick={async area => {
-                          const full = buildings.find(x => x.id === area.id);
-                          setSelBuilding(full);
-                          setSelFloor(null);
-                          setSelRoom(null);
-                          const floorData = await api.get(`/areas/${full.id}/children`);
-                          const floorList = floorData.filter(a => a.type === 'FLOOR');
-                          setFloors(floorList);
-                          setRooms([]);
-                          if (floorList.length > 0) {
-                            setSelFloor(floorList[0]);
-                            await loadRooms(floorList[0].id);
-                          }
-                        }}
-                      />
-                    ))
-                  }
-
-                  {showRooms && rooms
-                    .filter(r => r.map_x != null && r.map_y != null)
-                    .map(r => (
-                      <RoomIcon
-                        key={r.id}
-                        area={{ ...r, map_x: r.map_x * scale, map_y: r.map_y * scale }}
-                        color={getRoomColor(r, sensors, sensorStates, selRoom?.id === r.id)}
-                        roomSensors={sensors.filter(s => s.room_area_id === r.id)}
-                        sensorStates={sensorStates}
-                        draggable={placingMode === 'drag' && placingArea?.id === r.id}
-                        onDragEnd={(area, x, y) => handleDragEnd(area, x / scale, y / scale)}
-                        onClick={area => setSelRoom(rooms.find(x => x.id === area.id))}
-                      />
-                    ))
-                  }
+                  {showBuildings && buildings.filter(b => b.map_x != null && b.map_y != null).map(b => (
+                    <AreaIcon key={b.id} area={{ ...b, map_x: b.map_x * scale, map_y: b.map_y * scale }} color={selBuilding?.id === b.id ? '#1d4ed8' : colors.action}
+                      draggable={placingMode === 'drag' && placingArea?.id === b.id} onDragEnd={(area, x, y) => handleDragEnd(area, x / scale, y / scale)}
+                      onClick={area => { const full = buildings.find(x => x.id === area.id); setSelBuilding(full); setSelFloor(null); setSelRoom(null); setRooms([]); loadFloors(full.id); }}
+                      onDblClick={async area => {
+                        const full = buildings.find(x => x.id === area.id); setSelBuilding(full); setSelFloor(null); setSelRoom(null);
+                        const floorData = await api.get(`/areas/${full.id}/children`); const floorList = floorData.filter(a => a.type === 'FLOOR');
+                        setFloors(floorList); setRooms([]);
+                        if (floorList.length > 0) { setSelFloor(floorList[0]); await loadRooms(floorList[0].id); }
+                      }}
+                    />
+                  ))}
+                  {showRooms && rooms.filter(r => r.map_x != null && r.map_y != null).map(r => (
+                    <RoomIcon key={r.id} area={{ ...r, map_x: r.map_x * scale, map_y: r.map_y * scale }}
+                      color={getRoomColor(r, sensors, sensorStates, selRoom?.id === r.id)}
+                      roomSensors={sensors.filter(s => s.room_area_id === r.id)} sensorStates={sensorStates}
+                      draggable={placingMode === 'drag' && placingArea?.id === r.id} onDragEnd={(area, x, y) => handleDragEnd(area, x / scale, y / scale)}
+                      onClick={area => setSelRoom(rooms.find(x => x.id === area.id))}
+                    />
+                  ))}
                 </Layer>
               </Stage>
             </>
           )}
       </div>
 
-      {/* ── Area detail cards ── */}
+      {/* Info panel with tabs */}
       {(selBuilding || selFloor || selRoom) && (
-        <div style={d.cardsRow}>
-          {[
-            selBuilding && { type: 'building', area: selBuilding, canMove: true },
-            selFloor    && { type: 'floor',    area: selFloor,    canMove: false },
-            selRoom     && { type: 'room',      area: selRoom,     canMove: true },
-          ].filter(Boolean).map(({ type, area, canMove }) => (
-            <div key={type} style={d.card}>
-              <div style={d.cardHead}>
-                <span style={d.cardType}>{type.charAt(0).toUpperCase() + type.slice(1)}</span>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {isAdmin && type === 'room' && <button style={d.cardBtn} onClick={openSensorModal} title="Add sensor">+S</button>}
-                  {isAdmin && canMove && <button style={d.cardBtn} onClick={() => handleMoveIcon(type)} title="Move icon">↔</button>}
-                  {isAdmin && <button style={d.cardBtn} onClick={() => openCardEdit(type, area)} title="Edit">✎</button>}
-                  <button style={d.cardBtn} onClick={() => infoCard === type ? setInfoCard(null) : openCardInfo(type, area)} title="Info">ⓘ</button>
-                  {isAdmin && <button style={{ ...d.cardBtn, color: '#dc2626' }} onClick={() => handleDeleteCard(type)} title="Delete">✕</button>}
+        <div style={d.infoPanel}>
+          <div style={d.tabBar}>
+            <div style={d.tabGroup}>
+              {selBuilding && <button style={activeTab === 'building' ? d.tabActive : d.tab} onClick={() => setActiveTab('building')}>BUILDING</button>}
+              {selFloor && <button style={activeTab === 'floor' ? d.tabActive : d.tab} onClick={() => setActiveTab('floor')}>FLOOR</button>}
+              {selRoom && <button style={activeTab === 'room' ? d.tabActive : d.tab} onClick={() => setActiveTab('room')}>ROOM</button>}
+            </div>
+            {tabArea && (
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                {isAdmin && activeTab === 'room' && <IconBtn src={iconPlus} title="Add sensor" onClick={openSensorModal} />}
+                {isAdmin && canMove && <IconBtn src={iconMove} title="Move icon" onClick={() => handleMoveIcon(activeTab)} />}
+                {isAdmin && <IconBtn src={iconEdit} title="Edit" onClick={() => openCardEdit(activeTab, tabArea)} />}
+                {isAdmin && <IconBtn src={iconTrash} title="Delete" onClick={() => handleDeleteCard(activeTab)} tint="red" />}
+              </div>
+            )}
+          </div>
+          {tabArea && (
+            editingCard === activeTab ? (
+              <form onSubmit={e => handleSaveCard(e, activeTab)} style={d.tabContent}>
+                {cardError && <p style={{ color: colors.remove, fontSize: 12, marginBottom: 6 }}>{cardError}</p>}
+                {activeTab !== 'floor' && (<><label style={d.fieldLabel}>Name</label><input style={d.fieldInput} value={cardForm.name} onChange={e => setCardForm(f => ({ ...f, name: e.target.value }))} required /></>)}
+                <label style={d.fieldLabel}>Code</label>
+                <input style={d.fieldInput} value={cardForm.code} onChange={e => setCardForm(f => ({ ...f, code: e.target.value }))} />
+                <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                  <button style={d.saveBtn} type="submit">Save</button>
+                  <button style={d.cancelBtn} type="button" onClick={() => setEditingCard(null)}>Cancel</button>
+                </div>
+              </form>
+            ) : (
+              <div style={d.tabContent}>
+                <div style={d.tabColumns}>
+                  <div style={d.tabLeft}>
+                    <div style={d.fieldRow}><span style={d.fieldKey}>Name</span><span style={d.fieldVal}>{tabArea.name}</span></div>
+                    {tabArea.code && tabArea.code !== tabArea.name && <div style={d.fieldRow}><span style={d.fieldKey}>Code</span><span style={d.fieldVal}>{tabArea.code}</span></div>}
+                    <div style={d.fieldRow}><span style={d.fieldKey}>Created</span><span style={d.fieldVal}>{new Date(tabArea.created_at).toLocaleDateString()} - {new Date(tabArea.created_at).toLocaleTimeString()}</span></div>
+                    <div style={d.fieldRow}><span style={d.fieldKey}>Active</span><span style={d.fieldVal}>{tabArea.is_active ? 'Yes' : 'No'}</span></div>
+                  </div>
+                  {activeTab === 'room' && (
+                    <div style={d.tabRight}>
+                      <span style={d.fieldKey}>Sensors</span>
+                      {infoSensors.length === 0
+                        ? <span style={{ color: colors.textSecondary, fontSize: 13 }}>—</span>
+                        : infoSensors.map(s => {
+                            const stateEntry = sensorStates[s.sensor_key];
+                            const cls = classifySensorState(stateEntry?.state);
+                            const dotColor = cls === 'active' ? colors.sensorOn : cls === 'idle' ? colors.sensorIdle : colors.actionOff;
+                            return (<div key={s.id} style={d.sensorRow}><span style={{ ...d.sensorDot, background: dotColor }} /><span style={{ fontSize: 13, color: colors.textPrime }}>{s.sensor_key}</span></div>);
+                          })}
+                    </div>
+                  )}
                 </div>
               </div>
-              {editingCard === type ? (
-                <form onSubmit={e => handleSaveCard(e, type)} style={{ padding: '8px 12px' }}>
-                  {cardError && <p style={{ color: '#dc2626', fontSize: 11, marginBottom: 6 }}>{cardError}</p>}
-                  {type !== 'floor' && (
-                    <>
-                      <label style={d.cardLabel}>Name</label>
-                      <input style={d.cardInput} value={cardForm.name} onChange={e => setCardForm(f => ({ ...f, name: e.target.value }))} required />
-                    </>
-                  )}
-                  <label style={d.cardLabel}>Code</label>
-                  <input style={d.cardInput} value={cardForm.code} onChange={e => setCardForm(f => ({ ...f, code: e.target.value }))} />
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button style={d.saveBtn} type="submit">Save</button>
-                    <button style={d.cancelBtn} type="button" onClick={() => setEditingCard(null)}>Cancel</button>
-                  </div>
-                </form>
-              ) : infoCard === type ? (
-                <div style={{ padding: '6px 12px 10px' }}>
-                  <p style={d.cardInfoRow}><span style={d.cardInfoKey}>ID</span><span style={{ fontFamily: 'monospace', fontSize: 10, wordBreak: 'break-all' }}>{area.id}</span></p>
-                  <p style={d.cardInfoRow}><span style={d.cardInfoKey}>Type</span>{area.type}</p>
-                  <p style={d.cardInfoRow}><span style={d.cardInfoKey}>Created</span>{new Date(area.created_at).toLocaleDateString()}</p>
-                  {area.description && <p style={d.cardInfoRow}><span style={d.cardInfoKey}>Desc</span>{area.description}</p>}
-                  <p style={{ ...d.cardInfoRow, marginTop: 6 }}><span style={d.cardInfoKey}>Sensors</span>{infoSensors.length === 0 ? '—' : ''}</p>
-                  {infoSensors.map(s => (
-                    <p key={s.id} style={{ ...d.cardMeta, paddingLeft: 8 }}>• {s.name} <span style={{ color: '#d1d5db' }}>({s.kind})</span></p>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ padding: '6px 12px 10px' }}>
-                  <p style={d.cardName}>{area.name}</p>
-                  {area.code && area.code !== area.name && <p style={d.cardMeta}>Code: {area.code}</p>}
-                  {area.description && <p style={d.cardMeta}>{area.description}</p>}
-                  <p style={d.cardMeta}>Status: {area.is_active ? 'Active' : 'Inactive'}</p>
-                </div>
-              )}
-            </div>
-          ))}
+            )
+          )}
         </div>
       )}
 
-      {/* ── Modals ── */}
+      </div>{/* end container */}
 
+      {/* Modals */}
       {modal === 'site' && (
         <Modal title="Create Site" onClose={closeModal}>
           <form onSubmit={handleCreateSite} style={m.form}>
@@ -719,88 +508,57 @@ export default function DashboardPage() {
             <input style={m.input} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required autoFocus />
             <label style={m.label}>Campus Map Image</label>
             <input type="file" accept="image/*" style={m.fileInput} onChange={e => setForm(f => ({ ...f, file: e.target.files[0] ?? null }))} required />
-            <div style={m.actions}>
-              <button style={m.btn} type="submit">Create</button>
-              <button style={m.btnGray} type="button" onClick={closeModal}>Cancel</button>
-            </div>
+            <div style={m.actions}><button style={m.btn} type="submit">Create</button><button style={m.btnGray} type="button" onClick={closeModal}>Cancel</button></div>
           </form>
         </Modal>
       )}
-
       {modal === 'building' && (
         <Modal title="Create Building" onClose={closeModal}>
           <form onSubmit={handleCreateBuilding} style={m.form}>
             {modalError && <p style={m.error}>{modalError}</p>}
-            <label style={m.label}>Name</label>
-            <input style={m.input} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required autoFocus />
-            <label style={m.label}>Code</label>
-            <input style={m.input} placeholder="e.g. B01" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} required />
-            <label style={m.label}>Description <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+            <label style={m.label}>Name</label><input style={m.input} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required autoFocus />
+            <label style={m.label}>Code</label><input style={m.input} placeholder="e.g. B01" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} required />
+            <label style={m.label}>Description <span style={{ fontWeight: 400, color: colors.textSecondary }}>(optional)</span></label>
             <textarea style={m.textarea} rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-            <p style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 0' }}>
-              After creating, click the map to place the building icon.
-            </p>
-            <div style={m.actions}>
-              <button style={m.btn} type="submit">Create & Place</button>
-              <button style={m.btnGray} type="button" onClick={closeModal}>Cancel</button>
-            </div>
+            <p style={{ fontSize: 12, color: colors.textSecondary, margin: '8px 0 0' }}>After creating, click the map to place the building icon.</p>
+            <div style={m.actions}><button style={m.btn} type="submit">Create & Place</button><button style={m.btnGray} type="button" onClick={closeModal}>Cancel</button></div>
           </form>
         </Modal>
       )}
-
       {modal === 'floor' && (
         <Modal title="Create Floor" onClose={closeModal}>
           <form onSubmit={handleCreateFloor} style={m.form}>
             {modalError && <p style={m.error}>{modalError}</p>}
-            <label style={m.label}>Code</label>
-            <input style={m.input} placeholder="e.g. F01" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} required autoFocus />
-            <label style={m.label}>Description <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+            <label style={m.label}>Code</label><input style={m.input} placeholder="e.g. F01" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} required autoFocus />
+            <label style={m.label}>Description <span style={{ fontWeight: 400, color: colors.textSecondary }}>(optional)</span></label>
             <textarea style={m.textarea} rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             <label style={m.label}>Floor Map Image</label>
             <input type="file" accept="image/*" style={m.fileInput} onChange={e => setForm(f => ({ ...f, file: e.target.files[0] ?? null }))} required />
-            <div style={m.actions}>
-              <button style={m.btn} type="submit">Create</button>
-              <button style={m.btnGray} type="button" onClick={closeModal}>Cancel</button>
-            </div>
+            <div style={m.actions}><button style={m.btn} type="submit">Create</button><button style={m.btnGray} type="button" onClick={closeModal}>Cancel</button></div>
           </form>
         </Modal>
       )}
-
       {modal === 'room' && (
         <Modal title="Create Room" onClose={closeModal}>
           <form onSubmit={handleCreateRoom} style={m.form}>
             {modalError && <p style={m.error}>{modalError}</p>}
-            <label style={m.label}>Name</label>
-            <input style={m.input} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required autoFocus />
-            <label style={m.label}>Code</label>
-            <input style={m.input} placeholder="e.g. R101" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} required />
-            <label style={m.label}>Description <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+            <label style={m.label}>Name</label><input style={m.input} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required autoFocus />
+            <label style={m.label}>Code</label><input style={m.input} placeholder="e.g. R101" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} required />
+            <label style={m.label}>Description <span style={{ fontWeight: 400, color: colors.textSecondary }}>(optional)</span></label>
             <textarea style={m.textarea} rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-            <p style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 0' }}>
-              After creating, click the floor map to place the room icon.
-            </p>
-            <div style={m.actions}>
-              <button style={m.btn} type="submit">Create & Place</button>
-              <button style={m.btnGray} type="button" onClick={closeModal}>Cancel</button>
-            </div>
+            <p style={{ fontSize: 12, color: colors.textSecondary, margin: '8px 0 0' }}>After creating, click the floor map to place the room icon.</p>
+            <div style={m.actions}><button style={m.btn} type="submit">Create & Place</button><button style={m.btnGray} type="button" onClick={closeModal}>Cancel</button></div>
           </form>
         </Modal>
       )}
-
       {modal === 'sensor' && selRoom && (
         <Modal title={`Add Sensor — ${selRoom.name}`} onClose={closeModal}>
           <form onSubmit={handleCreateSensor} style={m.form}>
             {modalError && <p style={m.error}>{modalError}</p>}
-            <label style={m.label}>Name</label>
-            <input style={m.input} value={sensorForm.name} onChange={e => setSensorForm(f => ({ ...f, name: e.target.value }))} required autoFocus />
+            <label style={m.label}>Name</label><input style={m.input} value={sensorForm.name} onChange={e => setSensorForm(f => ({ ...f, name: e.target.value }))} required autoFocus />
             <label style={m.label}>Kind</label>
-            <select style={m.input} value={sensorForm.kind} onChange={e => setSensorForm(f => ({ ...f, kind: e.target.value }))}>
-              {SENSOR_KINDS.map(k => <option key={k}>{k}</option>)}
-            </select>
-            <div style={m.actions}>
-              <button style={m.btn} type="submit">Add Sensor</button>
-              <button style={m.btnGray} type="button" onClick={closeModal}>Cancel</button>
-            </div>
+            <select style={m.input} value={sensorForm.kind} onChange={e => setSensorForm(f => ({ ...f, kind: e.target.value }))}>{SENSOR_KINDS.map(k => <option key={k}>{k}</option>)}</select>
+            <div style={m.actions}><button style={m.btn} type="submit">Add Sensor</button><button style={m.btnGray} type="button" onClick={closeModal}>Cancel</button></div>
           </form>
         </Modal>
       )}
@@ -810,44 +568,51 @@ export default function DashboardPage() {
 
 // ── Page styles ───────────────────────────────────────────────────────────────
 const d = {
-  root:         { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', background: '#f9fafb' },
-  topBar:       { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', background: '#fff', borderBottom: '1px solid #e5e7eb', flexShrink: 0, gap: 8 },
-  select:       { padding: '5px 10px', fontSize: 13, border: '1px solid #d1d5db', borderRadius: 4, background: '#fff', cursor: 'pointer' },
-  siteBtn:      { padding: '5px 14px', background: '#111827', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600 },
-  mapArea:      { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' },
+  root:         { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', background: colors.pageBg, overflowY: 'auto' },
+  container:    { ...container.wide, display: 'flex', flexDirection: 'column', paddingBottom: 20 },
+  titleRow:     { padding: '16px 0 4px', flexShrink: 0 },
+  pageTitle:    { margin: 0, fontSize: 18, fontWeight: 700, color: colors.textPrime },
+  controlRow:   { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0 12px', flexShrink: 0, gap: 12 },
+  siteBtn:      { background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: colors.textPrime, padding: 0 },
+  dropdowns:    { display: 'flex', gap: 10 },
+  select:       { padding: '6px 12px', fontSize: 13, border: `1px solid ${colors.border}`, borderRadius: 6, background: colors.white, cursor: 'pointer', color: colors.textPrime, minWidth: 120 },
+  mapCard:      { aspectRatio: '4/3', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative', background: colors.white, borderRadius: 10, border: `1px solid ${colors.border}` },
   empty:        { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
-  createSiteBtn:{ padding: '10px 24px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 600 },
-  placingBanner:{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: '#1d4ed8', color: '#fff', padding: '6px 18px', borderRadius: 20, fontSize: 13, zIndex: 10, pointerEvents: 'none' },
-
-  // Cards row
-  cardsRow:   { display: 'flex', gap: 12, padding: '10px 16px', background: '#fff', borderTop: '1px solid #e5e7eb', flexShrink: 0, overflowX: 'auto' },
-  card:       { minWidth: 200, border: '1px solid #e5e7eb', borderRadius: 6, background: '#f9fafb', flex: '0 0 auto' },
-  cardHead:   { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #f3f4f6' },
-  cardType:   { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b7280' },
-  cardBtn:    { background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#6b7280', padding: '0 3px', lineHeight: 1 },
-  cardName:   { fontSize: 13, fontWeight: 600, color: '#111827', margin: '0 0 2px' },
-  cardMeta:   { fontSize: 11, color: '#9ca3af', margin: '0 0 2px' },
-  cardLabel:    { display: 'block', fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 2 },
-  cardInput:    { display: 'block', width: '100%', padding: '4px 6px', fontSize: 12, border: '1px solid #d1d5db', borderRadius: 3, boxSizing: 'border-box', marginBottom: 6 },
-  saveBtn:      { padding: '4px 10px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer', fontSize: 12 },
-  cancelBtn:    { padding: '4px 10px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 3, cursor: 'pointer', fontSize: 12 },
-  cardInfoRow:  { display: 'flex', gap: 6, fontSize: 11, color: '#374151', margin: '0 0 3px', lineHeight: '1.4' },
-  cardInfoKey:  { fontWeight: 600, color: '#9ca3af', minWidth: 52, flexShrink: 0 },
+  addSiteText:  { fontSize: 15, color: colors.textSecondary, cursor: 'pointer', fontWeight: 500 },
+  placingBanner:{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: colors.action, color: '#fff', padding: '6px 18px', borderRadius: 20, fontSize: 13, zIndex: 10, pointerEvents: 'none' },
+  infoPanel:    { background: colors.white, borderRadius: 10, border: `1px solid ${colors.border}`, marginTop: 12, flexShrink: 0, overflow: 'hidden' },
+  tabBar:       { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${colors.border}`, padding: '0 12px' },
+  tabGroup:     { display: 'flex', gap: 0 },
+  tab:          { background: 'none', border: 'none', borderBottom: '2px solid transparent', padding: '10px 16px', fontSize: 12, fontWeight: 600, color: colors.textSecondary, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em' },
+  tabActive:    { background: 'none', border: 'none', borderBottom: `2px solid ${colors.action}`, padding: '10px 16px', fontSize: 12, fontWeight: 600, color: colors.textPrime, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em' },
+  iconBtn:      { background: 'none', border: 'none', cursor: 'pointer', padding: 4, opacity: 0.6, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  tabContent:   { padding: '12px 16px' },
+  tabColumns:   { display: 'flex', gap: 40 },
+  tabLeft:      { flex: '0 0 auto', minWidth: 200 },
+  tabRight:     { flex: '0 0 auto' },
+  fieldRow:     { display: 'flex', gap: 12, marginBottom: 4, fontSize: 13 },
+  fieldKey:     { fontWeight: 600, color: colors.textSecondary, minWidth: 60 },
+  fieldVal:     { color: colors.textPrime },
+  sensorRow:    { display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 },
+  sensorDot:    { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
+  fieldLabel:   { display: 'block', fontSize: 12, fontWeight: 600, color: colors.textPrime, marginBottom: 2 },
+  fieldInput:   { display: 'block', width: '100%', padding: '4px 8px', fontSize: 13, border: `1px solid ${colors.border}`, borderRadius: 4, boxSizing: 'border-box', marginBottom: 6 },
+  saveBtn:      { padding: '4px 12px', background: colors.action, color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 },
+  cancelBtn:    { padding: '4px 12px', background: colors.compBg, color: colors.textPrime, border: `1px solid ${colors.border}`, borderRadius: 4, cursor: 'pointer', fontSize: 12 },
 };
 
-// ── Modal styles ──────────────────────────────────────────────────────────────
 const m = {
-  overlay:  { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  box:      { background: '#fff', borderRadius: 8, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' },
-  head:     { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid #f3f4f6' },
-  closeBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#9ca3af', lineHeight: 1 },
+  overlay:  { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  box:      { background: colors.white, borderRadius: 10, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.15)', overflow: 'hidden' },
+  head:     { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: `1px solid ${colors.border}` },
+  closeBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: colors.textSecondary, lineHeight: 1 },
   form:     { padding: '18px' },
-  label:    { display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 },
-  input:    { display: 'block', width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid #d1d5db', borderRadius: 4, boxSizing: 'border-box', marginBottom: 12 },
+  label:    { display: 'block', fontSize: 12, fontWeight: 600, color: colors.textPrime, marginBottom: 4 },
+  input:    { display: 'block', width: '100%', padding: '7px 10px', fontSize: 13, border: `1px solid ${colors.border}`, borderRadius: 6, boxSizing: 'border-box', marginBottom: 12, background: colors.white },
   fileInput:{ display: 'block', marginBottom: 16, fontSize: 13 },
-  textarea: { display: 'block', width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid #d1d5db', borderRadius: 4, boxSizing: 'border-box', marginBottom: 12, resize: 'vertical', fontFamily: 'inherit' },
+  textarea: { display: 'block', width: '100%', padding: '7px 10px', fontSize: 13, border: `1px solid ${colors.border}`, borderRadius: 6, boxSizing: 'border-box', marginBottom: 12, resize: 'vertical', fontFamily: 'inherit' },
   actions:  { display: 'flex', gap: 8, marginTop: 8 },
-  btn:      { padding: '8px 18px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13 },
-  btnGray:  { padding: '8px 18px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 4, cursor: 'pointer', fontSize: 13 },
-  error:    { color: '#dc2626', fontSize: 12, marginBottom: 10 },
+  btn:      { padding: '8px 18px', background: colors.action, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 500 },
+  btnGray:  { padding: '8px 18px', background: colors.compBg, color: colors.textPrime, border: `1px solid ${colors.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 13 },
+  error:    { color: colors.remove, fontSize: 12, marginBottom: 10 },
 };
