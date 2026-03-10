@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
+import useWebSocket from '../hooks/useWebSocket';
 import PageTitle from '../components/PageTitle';
 import SearchFilterInput from '../components/SearchFilterInput';
 import { GhostButton, PrimaryButton } from '../components/Button';
@@ -14,7 +15,7 @@ const emptyForm = { name: '', kind: 'MOTION', room_area_id: '', metadata: '' };
 
 export default function SensorsPage() {
   const [sensors, setSensors] = useState([]);
-  const [sensorStates, setSensorStates] = useState({});
+  const sensorStates = useWebSocket();
   const [filter, setFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -32,25 +33,6 @@ export default function SensorsPage() {
     loadSensors();
   }, []);
 
-  useEffect(() => {
-    let active = true;
-
-    const poll = () =>
-      api
-        .get('/api/states')
-        .then((data) => {
-          if (active) setSensorStates(data || {});
-        })
-        .catch(() => {});
-
-    poll();
-    const id = setInterval(poll, 5000);
-
-    return () => {
-      active = false;
-      clearInterval(id);
-    };
-  }, []);
 
   function parseMetadata(raw) {
     if (!raw.trim()) return undefined;

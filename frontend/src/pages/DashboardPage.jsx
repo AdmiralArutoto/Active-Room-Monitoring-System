@@ -3,6 +3,7 @@ import { Stage, Layer, Image as KonvaImage, Group, Rect, Text, Circle } from 're
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../styles/shared';
+import useWebSocket from '../hooks/useWebSocket';
 import PageTitle from '../components/PageTitle';
 import AreaTabs from '../components/AreaTabs';
 import IconButton from '../components/IconButton';
@@ -137,7 +138,7 @@ export default function DashboardPage() {
   const [infoSensors, setInfoSensors] = useState([]);
   const [sensorForm, setSensorForm] = useState({ name: '', kind: 'MOTION' });
   const [sensors, setSensors] = useState([]);
-  const [sensorStates, setSensorStates] = useState({});
+  const sensorStates = useWebSocket();
 
   // ── Resize observer ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -159,13 +160,6 @@ export default function DashboardPage() {
 
   useEffect(() => { api.get('/sensors').then(setSensors).catch(() => {}); }, []);
 
-  useEffect(() => {
-    let active = true;
-    const poll = () => api.get('/api/states').then(data => { if (active) setSensorStates(data); }).catch(() => {});
-    poll();
-    const id = setInterval(poll, 5000);
-    return () => { active = false; clearInterval(id); };
-  }, []);
 
   useEffect(() => {
     const mapArea = selFloor ?? site;

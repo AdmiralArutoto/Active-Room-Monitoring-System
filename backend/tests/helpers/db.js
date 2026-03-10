@@ -15,7 +15,6 @@ async function setupDb() {
 async function resetDb() {
   // Delete in dependency order (children before parents)
   await prisma.sensorEvent.deleteMany();
-  await prisma.sensorState.deleteMany();
   await prisma.sensor.deleteMany();
   await prisma.area.deleteMany();
   await prisma.user.deleteMany();

@@ -38,14 +38,6 @@ async function remove(id) {
   return prisma.sensor.delete({ where: { id } });
 }
 
-async function upsertState(sensor_id, last_value, last_ts) {
-  return prisma.sensorState.upsert({
-    where: { sensor_id },
-    update: { last_value, last_ts, updated_at: new Date() },
-    create: { sensor_id, last_value, last_ts, updated_at: new Date() },
-  });
-}
-
 async function appendEvent(sensor_id, value, ts, raw) {
   return prisma.sensorEvent.create({
     data: { sensor_id, value, ts, raw: raw ?? undefined },
@@ -69,4 +61,4 @@ async function findEvents({ sensor_id, from, to, limit = 50, offset = 0 }) {
   });
 }
 
-module.exports = { findAll, findById, findBySensorKey, findByRoomAndKind, create, update, remove, upsertState, appendEvent, findEvents };
+module.exports = { findAll, findById, findBySensorKey, findByRoomAndKind, create, update, remove, appendEvent, findEvents };

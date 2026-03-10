@@ -36,12 +36,6 @@ erDiagram
         Json       metadata
         DateTime   created_at
     }
-    SensorState {
-        String   sensor_id PK "FK"
-        String   last_value
-        DateTime last_ts
-        DateTime updated_at
-    }
     SensorEvent {
         String   id        PK
         String   sensor_id FK
@@ -52,13 +46,12 @@ erDiagram
     }
 
     Area        ||--o{ Sensor      : "room_area_id"
-    Sensor      ||--o| SensorState : "sensor_id (1 current state)"
     Sensor      ||--o{ SensorEvent : "sensor_id (append-only log)"
 ```
 
 **Notes:**
 - `Area.parent_id` is a self-referencing FK — the tree is an **adjacency list** (flat table, parent pointer per row). The hierarchy is fixed at 4 levels: `SITE → BUILDING → FLOOR → ROOM`, enforced by the `AreaType` enum and service-layer validation.
-- `SensorState` — one mutable row per sensor (current reading, upserted on each push).
+- `SensorState` has been removed — current sensor state is now held in Redis (see Sensor Ingestion section). See [design_legacy.md](design_legacy.md) for the old DB-backed model.
 - `SensorEvent` — append-only log; one row per push event (full history).
 - `User` has no relations to other tables — auth is stateless JWT.
 
@@ -266,9 +259,11 @@ Sensor states will be polled every 5 seconds from `GET /api/states`.
 
 ## Sensor Ingestion
 
+> **Note:** The original implementation used a Node.js `Map` and `EventEmitter` for state storage and event broadcasting. These have been replaced by Redis. See [design_legacy.md](design_legacy.md) for the old architecture.
+
 ### Concept
 
-Treat every sensor update as a small state change pushed to the backend. The backend immediately updates the current state in memory and publishes a state-changed event. Everything else (UI updates, history logging) reacts to that event.
+Treat every sensor update as a small state change pushed to the backend. The backend immediately updates current state in Redis and publishes a state-changed event via Redis Pub/Sub. Everything else (UI updates, history logging) reacts to that event.
 
 ### Pipeline
 
@@ -283,27 +278,59 @@ POST /api/states/:sensor_key
   Resolve sensor_key → Sensor record
         │
         ▼
-  In-memory store  ◄── source of truth for dashboard reads
-  Map<sensor_key, { sensor_id, state, ts }>
+  Redis HSET  ◄── source of truth for dashboard reads
+  Hash: sensor_states { sensor_key → { sensor_id, state, ts } }
         │
         ▼
-  Emit: state_changed({ sensor_key, sensor_id, old_state, new_state, ts })
+  Redis PUBLISH: state_changed({ sensor_key, sensor_id, old_state, new_state, ts })
         │
        / \
       /   \
      ▼     ▼
-Upsert   Append
-Sensor   Sensor
-State    Event
-(DB)     (DB)
-current  history
+  Append     WebSocket
+  SensorEvent  broadcast
+  (DB log)     (to clients)
 ```
+
+### Infrastructure
+
+| Component | Image / Package | Purpose |
+|-----------|-----------------|---------|
+| Redis | `redis:7-alpine` | State store + Pub/Sub event bus |
+| ioredis | npm dependency | Node.js Redis client (two instances: publisher + subscriber) |
+
+Redis runs with AOF persistence (`--appendonly yes`) so sensor state survives container restarts.
+
+### Redis client (`backend/src/store/redis.client.js`)
+
+Two ioredis instances are created from `REDIS_URL`:
+- **publisher** — used for `HSET`, `HGET`, `HGETALL`, and `PUBLISH` commands
+- **subscriber** — dedicated to `SUBSCRIBE` mode (Redis requires a separate connection for subscriptions)
+
+### State store (`backend/src/store/state.store.js`)
+
+Same API as the old in-memory store, now backed by a Redis hash:
+
+| Function | Redis command | Description |
+|----------|---------------|-------------|
+| `setState(key, id, state, ts)` | `HSET sensor_states <key> <json>` | Store current sensor reading |
+| `getState(key)` | `HGET sensor_states <key>` | Get single sensor state |
+| `getAllStates()` | `HGETALL sensor_states` | Get all sensor states (used by `GET /api/states`) |
+
+All functions are `async` (network I/O to Redis).
+
+### Event broadcasting
+
+The ingestion service publishes to the `state_changed` Redis channel after updating state. Two subscribers listen on this channel:
+1. **`app.js`** — appends a `SensorEvent` row to Postgres (history log)
+2. **`ws/server.js`** — broadcasts the state change to all connected WebSocket clients (real-time UI)
 
 ### Key decisions
 
-- **In-memory first** — the HTTP response returns immediately after updating the store. DB writes are async and do not block ingestion.
-- **Two DB tables** — `SensorState` (one row per sensor, mutable upsert = current status) and `SensorEvent` (append-only log = full history).
-- **Event emitter** — decouples ingestion from consumers. Adding a new consumer (e.g. WebSocket broadcast) means adding one listener, touching no ingestion code.
+- **Redis first** — the HTTP response returns immediately after `HSET` + `PUBLISH`. DB writes are async and do not block ingestion.
+- **Survives restarts** — unlike the old in-memory `Map`, Redis persists state across server crashes and deploys.
+- **Horizontally scalable** — multiple backend instances can share the same Redis for state and Pub/Sub.
+- **Single DB table** — `SensorEvent` (append-only log = full history). The old `SensorState` table has been removed — Redis is the sole source of current state.
 - **No auth on push endpoint** — sensors push without user tokens. Auth is only required for reading state snapshots.
 
 ### Sensor key format
@@ -314,6 +341,47 @@ Keys are system-generated from the area hierarchy:
 e.g. B01.F01.R101.motion_sensor_1
 ```
 Generated at sensor registration time by traversing the area tree. Stable for the lifetime of the sensor.
+
+---
+
+## WebSocket — Real-Time Sensor State
+
+> **Note:** WebSocket replaces the previous 5-second polling of `GET /api/states`. The polling approach is documented in [design_legacy.md](design_legacy.md).
+
+### Concept
+
+The backend pushes sensor state changes to connected frontend clients instantly via WebSocket. On connect, the server sends a full state snapshot so the client starts with accurate data. Subsequent updates are individual `state_changed` messages.
+
+### Server (`backend/src/ws/server.js`)
+
+- Uses the `ws` library with `noServer: true` — handles HTTP upgrade manually
+- **Auth:** JWT is passed as a query parameter (`ws://host/ws?token=<jwt>`). Verified on upgrade; connection rejected before handshake if invalid.
+- **Snapshot on connect:** immediately sends all current states from Redis via `getAllStates()`
+- **Broadcast:** subscribes to Redis `state_changed` channel; forwards each event to all connected clients
+
+### Message types (server → client)
+
+| Type | When | Payload |
+|------|------|---------|
+| `snapshot` | On connect | `{ type: "snapshot", states: { <sensor_key>: { sensor_id, state, ts }, ... } }` |
+| `state_changed` | On each sensor push | `{ type: "state_changed", sensor_key, sensor_id, state, ts }` |
+
+### Frontend hook (`frontend/src/hooks/useWebSocket.js`)
+
+- `useWebSocket()` — returns `sensorStates` object (same shape as the old polling response)
+- Auto-connects using token from `sessionStorage`
+- Handles `snapshot` (full replace) and `state_changed` (merge single key)
+- Auto-reconnects with exponential backoff (1s → 10s max)
+- Used by DashboardPage and SensorsPage
+
+### Infrastructure
+
+| Component | Package | Purpose |
+|-----------|---------|---------|
+| ws | npm dependency | WebSocket server for Node.js |
+| WebSocket API | browser built-in | Client connection (no extra library) |
+
+The HTTP server is created with `http.createServer(app)` in `index.js` to support both Express routes and WebSocket upgrades on the same port.
 
 ---
 
@@ -365,10 +433,10 @@ Derived from all sensors in the room collectively:
 
 Selected room uses a slightly darker shade of the same color.
 
-### Polling
+### Live updates (WebSocket)
 
 - `GET /sensors` fetched on mount → populates sensor list
-- `GET /api/states` polled every 5 seconds → updates `sensorStates` map
+- Sensor states are pushed in real-time via WebSocket (no polling)
 - Room icon colors and badge opacities re-render reactively on state changes
 
 ---
@@ -377,7 +445,7 @@ Selected room uses a slightly darker shade of the same color.
 
 ### Concept
 
-Every sensor state push is already appended to the `SensorEvent` table (via the `state_changed` emitter listener). The event log feature exposes this history through a query API and a filterable frontend page.
+Every sensor state push is already appended to the `SensorEvent` table (via the `state_changed` Redis Pub/Sub listener). The event log feature exposes this history through a query API and a filterable frontend page.
 
 ### Database indexes
 

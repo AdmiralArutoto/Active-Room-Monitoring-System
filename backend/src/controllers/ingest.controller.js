@@ -15,12 +15,12 @@ async function push(req, res) {
   }
 }
 
-function getAll(_req, res) {
-  res.json(stateStore.getAllStates());
+async function getAll(_req, res) {
+  res.json(await stateStore.getAllStates());
 }
 
-function getOne(req, res) {
-  const record = stateStore.getState(req.params.sensor_key);
+async function getOne(req, res) {
+  const record = await stateStore.getState(req.params.sensor_key);
   if (!record) return res.status(404).json({ error: 'No state found for sensor_key' });
   res.json(record);
 }

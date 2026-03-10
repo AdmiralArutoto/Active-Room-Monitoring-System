@@ -1,17 +1,24 @@
-// In-memory current state per sensor_key.
-// Schema: Map<sensor_key, { sensor_id, state, ts }>
-const store = new Map();
+const { publisher } = require('./redis.client');
 
-function setState(sensor_key, sensor_id, state, ts) {
-  store.set(sensor_key, { sensor_id, state, ts });
+const HASH_KEY = 'sensor_states';
+
+async function setState(sensor_key, sensor_id, state, ts) {
+  const value = JSON.stringify({ sensor_id, state, ts });
+  await publisher.hset(HASH_KEY, sensor_key, value);
 }
 
-function getState(sensor_key) {
-  return store.get(sensor_key) ?? null;
+async function getState(sensor_key) {
+  const raw = await publisher.hget(HASH_KEY, sensor_key);
+  return raw ? JSON.parse(raw) : null;
 }
 
-function getAllStates() {
-  return Object.fromEntries(store);
+async function getAllStates() {
+  const raw = await publisher.hgetall(HASH_KEY);
+  const result = {};
+  for (const [key, val] of Object.entries(raw)) {
+    result[key] = JSON.parse(val);
+  }
+  return result;
 }
 
 module.exports = { setState, getState, getAllStates };

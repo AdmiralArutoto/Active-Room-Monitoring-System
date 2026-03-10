@@ -22,7 +22,6 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await prisma.sensorEvent.deleteMany();
-  await prisma.sensorState.deleteMany();
   await prisma.sensor.deleteMany();
 });
 
