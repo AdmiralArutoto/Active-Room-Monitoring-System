@@ -1,0 +1,153 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  min-height: 100%;
+  font-family: Arial, sans-serif;
+  color: var(--text-primary);
+  background: var(--page-bg);
+}
+
+button, input, select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 var(--space-6);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+}
+
+.toolbar {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.table-shell {
+  overflow: hidden;
+}
+
+.table-shell table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-shell th,
+.table-shell td {
+  padding: 16px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table-shell th {
+  background: var(--surface-soft);
+  font-weight: 700;
+}
+
+.input,
+.select,
+.date-input {
+  height: 42px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 0 14px;
+  min-width: 160px;
+  color: var(--text-primary);
+}
+
+.button {
+  height: 42px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 0 16px;
+  cursor: pointer;
+}
+
+.button-primary {
+  background: var(--action-primary);
+  color: white;
+}
+
+.button-secondary {
+  background: var(--action-off);
+  color: white;
+}
+
+.icon-button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 54px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: white;
+  font-weight: 700;
+}
+
+.status-pill--on {
+  background: var(--sensor-on);
+}
+
+.status-pill--off {
+  background: #8F96A0;
+}
+
+.toggle {
+  width: 56px;
+  height: 30px;
+  border-radius: 999px;
+  position: relative;
+  border: 0;
+  cursor: pointer;
+  background: #BDBDBD;
+}
+
+.toggle.active {
+  background: var(--action-primary);
+}
+
+.toggle-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  transition: left 0.2s ease;
+}
+
+.toggle.active .toggle-thumb {
+  left: 29px;
+}

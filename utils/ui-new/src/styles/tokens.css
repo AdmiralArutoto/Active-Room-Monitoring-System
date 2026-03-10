@@ -1,0 +1,31 @@
+:root {
+  --page-bg: #EEEEEE;
+  --text-primary: #121619;
+  --text-secondary: #828282;
+
+  --action-primary: #3F81EA;
+  --action-off: #878D96;
+  --dropdown-add-bg: #ECF2FF;
+  --danger: #EF5350;
+
+  --surface: #FFFFFF;
+  --surface-soft: #F5F5F5;
+  --border: #D9D9D9;
+
+  --sensor-on: #6BA76E;
+  --sensor-idle: #9EBEF1;
+
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+}
