@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Image as KonvaImage, Group, Rect, Text, Circle } from 'react-konva';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { colors, container } from '../styles/shared';
+import { colors } from '../styles/shared';
+import PageTitle from '../components/PageTitle';
+import AreaTabs from '../components/AreaTabs';
+import IconButton from '../components/IconButton';
 
 import iconPlus from '../assets/icons/Vector-plus.png';
 import iconMove from '../assets/icons/Vector-move.png';
@@ -102,15 +105,6 @@ function RoomIcon({ area, color, roomSensors, sensorStates, draggable, onDragEnd
         <Circle key={s.id} x={dotStartX + i * (SENSOR_DOT_R * 2 + 4) + SENSOR_DOT_R} y={dotY} radius={SENSOR_DOT_R} fill={getSensorDotColor(s, sensorStates)} stroke="rgba(255,255,255,0.5)" strokeWidth={1} listening={false} />
       ))}
     </Group>
-  );
-}
-
-// ── Icon button helper ──────────────────────────────────────────────────────
-function IconBtn({ src, title, onClick, tint }) {
-  return (
-    <button onClick={onClick} title={title} style={{ ...d.iconBtn, ...(tint === 'red' ? { filter: 'brightness(0) saturate(100%) invert(47%) sepia(72%) saturate(2039%) hue-rotate(335deg) brightness(97%) contrast(92%)' } : {}) }}>
-      <img src={src} alt={title} style={{ width: 14, height: 14 }} />
-    </button>
   );
 }
 
@@ -364,7 +358,7 @@ export default function DashboardPage() {
   return (
     <div style={d.root}>
       <div style={d.container}>
-      <div style={d.titleRow}><h2 style={d.pageTitle}>Dashboard</h2></div>
+      <PageTitle style={d.pageTitle}>Dashboard</PageTitle>
 
       <div style={d.controlRow}>
         <button style={d.siteBtn} onClick={() => { setSelBuilding(null); setSelFloor(null); setSelRoom(null); setFloors([]); setRooms([]); }}>
@@ -392,7 +386,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Map card */}
-      <div ref={containerRef} style={{ ...d.mapCard, cursor: placingMode === 'click' ? 'crosshair' : 'default' }}>
+      <div
+        ref={containerRef}
+        className="dashboard-map-card"
+        style={{ ...d.mapCard, cursor: placingMode === 'click' ? 'crosshair' : 'default' }}
+      >
         {!siteLoaded ? null
           : !site ? (
             <div style={d.empty}>
@@ -440,19 +438,52 @@ export default function DashboardPage() {
 
       {/* Info panel with tabs */}
       {(selBuilding || selFloor || selRoom) && (
-        <div style={d.infoPanel}>
-          <div style={d.tabBar}>
-            <div style={d.tabGroup}>
-              {selBuilding && <button style={activeTab === 'building' ? d.tabActive : d.tab} onClick={() => setActiveTab('building')}>BUILDING</button>}
-              {selFloor && <button style={activeTab === 'floor' ? d.tabActive : d.tab} onClick={() => setActiveTab('floor')}>FLOOR</button>}
-              {selRoom && <button style={activeTab === 'room' ? d.tabActive : d.tab} onClick={() => setActiveTab('room')}>ROOM</button>}
-            </div>
+        <div style={d.infoPanel} className="dashboard-info-card">
+          <div style={d.tabBar} className="tabs-bar">
+            <AreaTabs
+              activeTab={activeTab.toUpperCase()}
+              onChange={(tab) => setActiveTab(tab.toLowerCase())}
+              enabledTabs={[
+                ...(selBuilding ? ['BUILDING'] : []),
+                ...(selFloor ? ['FLOOR'] : []),
+                ...(selRoom ? ['ROOM'] : []),
+              ]}
+            />
             {tabArea && (
-              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                {isAdmin && activeTab === 'room' && <IconBtn src={iconPlus} title="Add sensor" onClick={openSensorModal} />}
-                {isAdmin && canMove && <IconBtn src={iconMove} title="Move icon" onClick={() => handleMoveIcon(activeTab)} />}
-                {isAdmin && <IconBtn src={iconEdit} title="Edit" onClick={() => openCardEdit(activeTab, tabArea)} />}
-                {isAdmin && <IconBtn src={iconTrash} title="Delete" onClick={() => handleDeleteCard(activeTab)} tint="red" />}
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} className="tabs-actions">
+                {isAdmin && activeTab === 'room' && (
+                  <IconButton
+                    label="Add sensor"
+                    title="Add sensor"
+                    onClick={openSensorModal}
+                    icon={<img src={iconPlus} alt="" style={{ width: 14, height: 14 }} />}
+                  />
+                )}
+                {isAdmin && canMove && (
+                  <IconButton
+                    label="Move icon"
+                    title="Move icon"
+                    onClick={() => handleMoveIcon(activeTab)}
+                    icon={<img src={iconMove} alt="" style={{ width: 14, height: 14 }} />}
+                  />
+                )}
+                {isAdmin && (
+                  <IconButton
+                    label="Edit"
+                    title="Edit"
+                    onClick={() => openCardEdit(activeTab, tabArea)}
+                    icon={<img src={iconEdit} alt="" style={{ width: 14, height: 14 }} />}
+                  />
+                )}
+                {isAdmin && (
+                  <IconButton
+                    label="Delete"
+                    title="Delete"
+                    danger
+                    onClick={() => handleDeleteCard(activeTab)}
+                    icon={<img src={iconTrash} alt="" style={{ width: 14, height: 14 }} />}
+                  />
+                )}
               </div>
             )}
           </div>
@@ -568,51 +599,46 @@ export default function DashboardPage() {
 
 // ── Page styles ───────────────────────────────────────────────────────────────
 const d = {
-  root:         { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', background: colors.pageBg, overflowY: 'auto' },
-  container:    { ...container.wide, display: 'flex', flexDirection: 'column', paddingBottom: 20 },
-  titleRow:     { padding: '16px 0 4px', flexShrink: 0 },
-  pageTitle:    { margin: 0, fontSize: 18, fontWeight: 700, color: colors.textPrime },
-  controlRow:   { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0 12px', flexShrink: 0, gap: 12 },
-  siteBtn:      { background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: colors.textPrime, padding: 0 },
-  dropdowns:    { display: 'flex', gap: 10 },
-  select:       { padding: '6px 12px', fontSize: 13, border: `1px solid ${colors.border}`, borderRadius: 6, background: colors.white, cursor: 'pointer', color: colors.textPrime, minWidth: 120 },
-  mapCard:      { aspectRatio: '4/3', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative', background: colors.white, borderRadius: 10, border: `1px solid ${colors.border}` },
+  root:         { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflowY: 'auto' },
+  container:    { display: 'flex', flexDirection: 'column', width: '100%', maxWidth: 1240, margin: '0 auto', paddingBottom: 20 },
+  pageTitle:    { marginBottom: 8, fontSize: 40, lineHeight: 1.1 },
+  controlRow:   { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 0 10px', flexShrink: 0, gap: 12, flexWrap: 'wrap' },
+  siteBtn:      { background: 'none', border: 'none', cursor: 'pointer', fontSize: 36, fontWeight: 700, color: colors.textPrime, padding: 0, lineHeight: 1 },
+  dropdowns:    { display: 'flex', gap: 10, flexWrap: 'wrap' },
+  select:       { height: 36, padding: '0 12px', fontSize: 14, border: `1px solid ${colors.border}`, borderRadius: 6, background: colors.white, cursor: 'pointer', color: colors.textPrime, minWidth: 150 },
+  mapCard:      { width: '100%', cursor: 'default' },
   empty:        { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
-  addSiteText:  { fontSize: 15, color: colors.textSecondary, cursor: 'pointer', fontWeight: 500 },
+  addSiteText:  { fontSize: 36, color: colors.textPrime, cursor: 'pointer', fontWeight: 700 },
   placingBanner:{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: colors.action, color: '#fff', padding: '6px 18px', borderRadius: 20, fontSize: 13, zIndex: 10, pointerEvents: 'none' },
-  infoPanel:    { background: colors.white, borderRadius: 10, border: `1px solid ${colors.border}`, marginTop: 12, flexShrink: 0, overflow: 'hidden' },
-  tabBar:       { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${colors.border}`, padding: '0 12px' },
-  tabGroup:     { display: 'flex', gap: 0 },
-  tab:          { background: 'none', border: 'none', borderBottom: '2px solid transparent', padding: '10px 16px', fontSize: 12, fontWeight: 600, color: colors.textSecondary, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em' },
-  tabActive:    { background: 'none', border: 'none', borderBottom: `2px solid ${colors.action}`, padding: '10px 16px', fontSize: 12, fontWeight: 600, color: colors.textPrime, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em' },
-  iconBtn:      { background: 'none', border: 'none', cursor: 'pointer', padding: 4, opacity: 0.6, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  tabContent:   { padding: '12px 16px' },
-  tabColumns:   { display: 'flex', gap: 40 },
-  tabLeft:      { flex: '0 0 auto', minWidth: 200 },
-  tabRight:     { flex: '0 0 auto' },
-  fieldRow:     { display: 'flex', gap: 12, marginBottom: 4, fontSize: 13 },
-  fieldKey:     { fontWeight: 600, color: colors.textSecondary, minWidth: 60 },
-  fieldVal:     { color: colors.textPrime },
+  infoPanel:    { marginTop: 10, flexShrink: 0 },
+  tabBar:       { minHeight: 42 },
+  tabContent:   { padding: '12px 14px' },
+  tabColumns:   { display: 'grid', gridTemplateColumns: '1.1fr 1fr', minHeight: 130 },
+  tabLeft:      { paddingRight: 18, borderRight: `1px solid ${colors.border}` },
+  tabRight:     { paddingLeft: 18 },
+  fieldRow:     { display: 'flex', gap: 12, marginBottom: 8, fontSize: 14 },
+  fieldKey:     { fontWeight: 700, color: '#585858', minWidth: 70 },
+  fieldVal:     { color: colors.textPrime, wordBreak: 'break-word' },
   sensorRow:    { display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 },
-  sensorDot:    { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
-  fieldLabel:   { display: 'block', fontSize: 12, fontWeight: 600, color: colors.textPrime, marginBottom: 2 },
-  fieldInput:   { display: 'block', width: '100%', padding: '4px 8px', fontSize: 13, border: `1px solid ${colors.border}`, borderRadius: 4, boxSizing: 'border-box', marginBottom: 6 },
-  saveBtn:      { padding: '4px 12px', background: colors.action, color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 },
-  cancelBtn:    { padding: '4px 12px', background: colors.compBg, color: colors.textPrime, border: `1px solid ${colors.border}`, borderRadius: 4, cursor: 'pointer', fontSize: 12 },
+  sensorDot:    { width: 10, height: 10, borderRadius: '50%', flexShrink: 0 },
+  fieldLabel:   { display: 'block', fontSize: 13, fontWeight: 700, color: colors.textPrime, marginBottom: 4 },
+  fieldInput:   { display: 'block', width: '100%', height: 34, padding: '0 10px', fontSize: 14, border: `1px solid ${colors.border}`, borderRadius: 8, boxSizing: 'border-box', marginBottom: 8 },
+  saveBtn:      { height: 34, padding: '0 14px', background: colors.action, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 },
+  cancelBtn:    { height: 34, padding: '0 14px', background: colors.white, color: colors.textPrime, border: `1px solid ${colors.border}`, borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 },
 };
 
 const m = {
   overlay:  { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  box:      { background: colors.white, borderRadius: 10, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.15)', overflow: 'hidden' },
-  head:     { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: `1px solid ${colors.border}` },
+  box:      { background: colors.white, borderRadius: 12, width: 400, boxShadow: '0 10px 28px rgba(0,0,0,0.18)', overflow: 'hidden', border: `1px solid ${colors.border}` },
+  head:     { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: `1px solid ${colors.border}` },
   closeBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: colors.textSecondary, lineHeight: 1 },
-  form:     { padding: '18px' },
-  label:    { display: 'block', fontSize: 12, fontWeight: 600, color: colors.textPrime, marginBottom: 4 },
-  input:    { display: 'block', width: '100%', padding: '7px 10px', fontSize: 13, border: `1px solid ${colors.border}`, borderRadius: 6, boxSizing: 'border-box', marginBottom: 12, background: colors.white },
+  form:     { padding: '14px 16px 16px' },
+  label:    { display: 'block', fontSize: 13, fontWeight: 700, color: colors.textPrime, marginBottom: 4 },
+  input:    { display: 'block', width: '100%', height: 36, padding: '0 10px', fontSize: 14, border: `1px solid ${colors.border}`, borderRadius: 8, boxSizing: 'border-box', marginBottom: 12, background: colors.white },
   fileInput:{ display: 'block', marginBottom: 16, fontSize: 13 },
-  textarea: { display: 'block', width: '100%', padding: '7px 10px', fontSize: 13, border: `1px solid ${colors.border}`, borderRadius: 6, boxSizing: 'border-box', marginBottom: 12, resize: 'vertical', fontFamily: 'inherit' },
+  textarea: { display: 'block', width: '100%', padding: '8px 10px', fontSize: 14, border: `1px solid ${colors.border}`, borderRadius: 8, boxSizing: 'border-box', marginBottom: 12, resize: 'vertical', fontFamily: 'inherit' },
   actions:  { display: 'flex', gap: 8, marginTop: 8 },
-  btn:      { padding: '8px 18px', background: colors.action, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 500 },
-  btnGray:  { padding: '8px 18px', background: colors.compBg, color: colors.textPrime, border: `1px solid ${colors.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 13 },
-  error:    { color: colors.remove, fontSize: 12, marginBottom: 10 },
+  btn:      { height: 36, padding: '0 14px', background: colors.action, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 },
+  btnGray:  { height: 36, padding: '0 14px', background: colors.white, color: colors.textPrime, border: `1px solid ${colors.border}`, borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 },
+  error:    { color: colors.remove, fontSize: 13, marginBottom: 10 },
 };
