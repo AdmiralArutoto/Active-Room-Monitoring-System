@@ -1,4 +1,4 @@
-# ARDS — Area & Room Dashboard System
+# Campus Active Sensor Monitoring System                                                                                     Github
 
 Campus sensor monitoring platform. Sensor data is pushed over HTTP, stored in a PostgreSQL database, and visualised through a React dashboard organized around a building → floor → room hierarchy.
 
