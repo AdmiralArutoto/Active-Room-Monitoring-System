@@ -1,3 +1,4 @@
+jest.mock('../../src/store/redis.client', () => require('../helpers/redis-mock'));
 const request = require('supertest');
 const app = require('../../src/app');
 const { prisma, resetDb } = require('../helpers/db');

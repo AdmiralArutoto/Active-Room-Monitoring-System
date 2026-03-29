@@ -1,3 +1,4 @@
+jest.mock('../../src/store/redis.client', () => require('../helpers/redis-mock'));
 const request = require('supertest');
 const app = require('../../src/app');
 const { prisma, resetDb } = require('../helpers/db');
@@ -25,11 +26,19 @@ afterAll(async () => {
 
 const auth = () => ({ Authorization: `Bearer ${token}` });
 
-async function createBuilding(overrides = {}) {
+async function createSite() {
   return request(app)
     .post('/areas')
     .set(auth())
-    .send({ name: 'Main Building', type: 'BUILDING', code: 'B01', ...overrides });
+    .send({ name: 'Campus', type: 'SITE' });
+}
+
+async function createBuilding(overrides = {}) {
+  const site = await createSite();
+  return request(app)
+    .post('/areas')
+    .set(auth())
+    .send({ name: 'Main Building', type: 'BUILDING', code: 'B01', parent_id: site.body.id, ...overrides });
 }
 
 describe('POST /areas', () => {

@@ -1,3 +1,5 @@
+jest.mock('../../src/store/redis.client', () => require('../helpers/redis-mock'));
+
 const request = require('supertest');
 const app = require('../../src/app');
 const { prisma, resetDb } = require('../helpers/db');
@@ -13,7 +15,7 @@ beforeAll(async () => {
   const loginRes = await request(app).post('/auth/login').send({ username: 'admin', password: 'secret123' });
   token = loginRes.body.token;
 
-  // Build area hierarchy: building → floor → room (all with codes)
+  // Build area hierarchy directly via Prisma (bypasses service hierarchy checks)
   const building = await prisma.area.create({ data: { name: 'B1', type: 'BUILDING', code: 'B01' } });
   const floor = await prisma.area.create({ data: { name: 'F1', type: 'FLOOR', code: 'F01', parent_id: building.id } });
   const room = await prisma.area.create({ data: { name: 'R1', type: 'ROOM', code: 'R101', parent_id: floor.id } });
@@ -38,7 +40,7 @@ describe('POST /sensors', () => {
       .set(auth())
       .send({ name: 'Motion Sensor 1', kind: 'MOTION', room_area_id: roomId });
     expect(res.status).toBe(201);
-    expect(res.body.sensor_key).toBe('B01.F01.R101.motion_sensor_1');
+    expect(res.body.sensor_key).toBe('b01.f01.r101.motion_sensor_1');
   });
 
   it('returns 400 when room_area_id is missing', async () => {
@@ -50,7 +52,6 @@ describe('POST /sensors', () => {
   });
 
   it('returns 400 when room has no code', async () => {
-    // Create an area hierarchy where the room has no code
     const b = await prisma.area.create({ data: { name: 'B2', type: 'BUILDING', code: 'B02' } });
     const f = await prisma.area.create({ data: { name: 'F2', type: 'FLOOR', code: 'F02', parent_id: b.id } });
     const noCodeRoom = await prisma.area.create({ data: { name: 'NoCode', type: 'ROOM', parent_id: f.id } });
@@ -62,14 +63,21 @@ describe('POST /sensors', () => {
     expect(res.status).toBe(400);
   });
 
-  it('deduplicates sensor_key when name collides', async () => {
-    await request(app).post('/sensors').set(auth()).send({ name: 'Door Sensor', kind: 'DOOR', room_area_id: roomId });
+  it('deduplicates sensor_key when name collides across rooms', async () => {
+    // Two rooms with the same code under the same floor — each can have a LIGHT sensor
+    const f = await prisma.area.findFirst({ where: { code: 'F01' } });
+    const room2 = await prisma.area.create({ data: { name: 'R2', type: 'ROOM', code: 'R101', parent_id: f.id } });
+
+    await request(app).post('/sensors').set(auth()).send({ name: 'Light Sensor', kind: 'LIGHT', room_area_id: roomId });
     const res = await request(app)
       .post('/sensors')
       .set(auth())
-      .send({ name: 'Door Sensor', kind: 'DOOR', room_area_id: roomId });
+      .send({ name: 'Light Sensor', kind: 'LIGHT', room_area_id: room2.id });
     expect(res.status).toBe(201);
-    expect(res.body.sensor_key).toBe('B01.F01.R101.door_sensor_2');
+    expect(res.body.sensor_key).toBe('b01.f01.r101.light_sensor_2');
+
+    await prisma.sensor.deleteMany({ where: { room_area_id: room2.id } });
+    await prisma.area.delete({ where: { id: room2.id } });
   });
 });
 
@@ -78,7 +86,7 @@ describe('PATCH /sensors/:id/active', () => {
     const create = await request(app)
       .post('/sensors')
       .set(auth())
-      .send({ name: 'Temp', kind: 'TEMPERATURE', room_area_id: roomId });
+      .send({ name: 'Light 1', kind: 'LIGHT', room_area_id: roomId });
     const id = create.body.id;
 
     const res = await request(app)
@@ -95,7 +103,7 @@ describe('DELETE /sensors/:id', () => {
     const create = await request(app)
       .post('/sensors')
       .set(auth())
-      .send({ name: 'Light', kind: 'LIGHT', room_area_id: roomId });
+      .send({ name: 'Light 1', kind: 'LIGHT', room_area_id: roomId });
     const res = await request(app).delete(`/sensors/${create.body.id}`).set(auth());
     expect(res.status).toBe(204);
   });

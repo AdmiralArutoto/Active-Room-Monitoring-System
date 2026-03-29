@@ -1,7 +1,8 @@
+jest.mock('../../src/store/redis.client', () => require('../helpers/redis-mock'));
+
 const request = require('supertest');
 const app = require('../../src/app');
 const { prisma, resetDb } = require('../helpers/db');
-const stateStore = require('../../src/store/state.store');
 const bcrypt = require('bcrypt');
 
 let token;
@@ -14,7 +15,7 @@ beforeAll(async () => {
   const loginRes = await request(app).post('/auth/login').send({ username: 'admin', password: 'secret123' });
   token = loginRes.body.token;
 
-  // Build area hierarchy and sensor
+  // Build area hierarchy and sensor directly via Prisma (bypasses service hierarchy checks)
   const building = await prisma.area.create({ data: { name: 'B1', type: 'BUILDING', code: 'B01' } });
   const floor = await prisma.area.create({ data: { name: 'F1', type: 'FLOOR', code: 'F01', parent_id: building.id } });
   const room = await prisma.area.create({ data: { name: 'R1', type: 'ROOM', code: 'R101', parent_id: floor.id } });
@@ -23,8 +24,10 @@ beforeAll(async () => {
   });
 });
 
-// The in-memory store is shared across tests; each test pushes its own state
-// so ordering matters only within describe blocks — which run sequentially (--runInBand).
+beforeEach(() => {
+  // Clear Redis mock store between tests so state doesn't bleed across describe blocks
+  require('../helpers/redis-mock').__store.clear();
+});
 
 afterAll(async () => {
   await prisma.$disconnect();
@@ -62,7 +65,6 @@ describe('POST /api/states/:sensor_key', () => {
       .post(`/api/states/${sensor.sensor_key}`)
       .send({ state: 'active' });
     expect(res.status).toBe(403);
-    // Restore for subsequent tests
     await prisma.sensor.update({ where: { id: sensor.id }, data: { is_active: true } });
   });
 

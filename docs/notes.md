@@ -6,5 +6,11 @@ thnings to fix:
 
 important features:
 
-1. move from UI polling to websocket.
 2. on light sensors - add time counter to "on" state.
+
+
+frontend sensor events / state pulling:
+
+1. for dashboard - pull sensor state via websockets (regualr pulling rn).
+2. for logs - live log feed -> use websockets to pull latest events from emitter.
+

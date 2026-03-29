@@ -1,10 +1,13 @@
 jest.mock('../../src/repositories/sensor.repository');
 jest.mock('../../src/store/state.store');
-jest.mock('../../src/events/emitter');
+jest.mock('../../src/store/redis.client', () => ({
+  publisher: { publish: jest.fn().mockResolvedValue(1) },
+  subscriber: { subscribe: jest.fn(), on: jest.fn() },
+}));
 
 const sensorRepo = require('../../src/repositories/sensor.repository');
 const stateStore = require('../../src/store/state.store');
-const emitter = require('../../src/events/emitter');
+const { publisher } = require('../../src/store/redis.client');
 const { ingest } = require('../../src/services/ingest.service');
 
 const mockSensor = { id: 'sensor-1', sensor_key: 'B01.F01.R101.motion_1', is_active: true };
@@ -12,9 +15,9 @@ const mockSensor = { id: 'sensor-1', sensor_key: 'B01.F01.R101.motion_1', is_act
 beforeEach(() => {
   jest.clearAllMocks();
   sensorRepo.findBySensorKey.mockResolvedValue(mockSensor);
-  stateStore.getState.mockReturnValue(null);
-  stateStore.setState.mockReturnValue(undefined);
-  emitter.emit.mockReturnValue(true);
+  stateStore.getState.mockResolvedValue(null);
+  stateStore.setState.mockResolvedValue(undefined);
+  publisher.publish.mockResolvedValue(1);
 });
 
 describe('ingest()', () => {
@@ -35,15 +38,17 @@ describe('ingest()', () => {
     );
   });
 
-  it('emits state_changed with correct payload', async () => {
-    stateStore.getState.mockReturnValue({ state: 'previous', ts: new Date() });
+  it('publishes state_changed to Redis with correct payload', async () => {
+    stateStore.getState.mockResolvedValue({ state: 'previous', ts: new Date() });
     await ingest('B01.F01.R101.motion_1', 'detected', null);
-    expect(emitter.emit).toHaveBeenCalledWith('state_changed', expect.objectContaining({
+    expect(publisher.publish).toHaveBeenCalledWith('state_changed', expect.any(String));
+    const payload = JSON.parse(publisher.publish.mock.calls[0][1]);
+    expect(payload).toMatchObject({
       sensor_key: 'B01.F01.R101.motion_1',
       sensor_id: mockSensor.id,
       old_state: 'previous',
       new_state: 'detected',
-    }));
+    });
   });
 
   it('uses provided unix timestamp when ts is given', async () => {

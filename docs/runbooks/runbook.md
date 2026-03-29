@@ -1,5 +1,64 @@
 # ARDS Runbook
 
+## Services
+
+```mermaid
+graph TD
+    Browser["Browser\n(React SPA)"]
+    Frontend["frontend\nlocalhost:5173"]
+    Backend["backend\nlocalhost:3000"]
+    DB["db\nPostgreSQL 16"]
+    Redis["redis\nRedis 7"]
+    DBTest["db_test\nPostgreSQL 16"]
+    Sensor["Sensor\n(curl / script)"]
+
+    Browser -->|"HTTP"| Frontend
+    Browser -->|"REST API (HTTP)"| Backend
+    Browser -->|"WebSocket /ws"| Backend
+    Frontend -->|"served by Vite"| Browser
+
+    Sensor -->|"POST /api/states/:key\n(no auth)"| Backend
+
+    Backend -->|"Prisma ORM\n(SQL)"| DB
+    Backend -->|"HSET / HGET / HGETALL\n(state store)"| Redis
+    Backend -->|"PUBLISH state_changed"| Redis
+    Redis -->|"SUBSCRIBE state_changed\n(DB write + WS broadcast)"| Backend
+
+    DBTest -. "integration tests only" .-> Backend
+```
+
+| Service   | Image / Build     | Port  | Purpose |
+|-----------|-------------------|-------|---------|
+| `db`      | postgres:16-alpine | —    | Primary PostgreSQL database for all application data |
+| `redis`   | redis:7-alpine     | —    | Sensor state store (Redis hash) and Pub/Sub event bus |
+| `backend` | ./backend          | 3000 | Node.js/Express API — ingestion, REST endpoints, WebSocket server |
+| `frontend` | ./frontend        | 5173 | React SPA — map dashboard, sensor registry, event log |
+| `db_test` | postgres:16-alpine | 5434 | Isolated PostgreSQL database used exclusively for integration tests |
+
+### `db`
+Runs PostgreSQL 16. Stores all persistent relational data: users, area hierarchy, sensors, and the append-only sensor event log (`SensorEvent`). Data is persisted in the `postgres_data` named volume so it survives container restarts. Has a healthcheck that `backend` waits on before starting.
+
+### `redis`
+Runs Redis 7 with AOF persistence (`--appendonly yes`), meaning sensor state survives restarts. Serves two roles:
+- **State store** — current sensor readings held in a Redis hash (`sensor_states`)
+- **Pub/Sub bus** — `state_changed` channel fans out ingestion events to the DB writer and WebSocket broadcaster
+
+### `backend`
+Built from `./backend/Dockerfile`. Runs the Express server on port 3000. Responsible for:
+- REST API (auth, areas, sensors, ingestion, events)
+- WebSocket server (`/ws`) for real-time state push to frontend clients
+- Prisma ORM — runs `migrate deploy` on startup
+- Depends on both `db` and `redis` being healthy before starting
+- Map upload files stored in the `uploads_data` volume at `/app/uploads`
+
+### `frontend`
+Built from `./frontend/Dockerfile`. Runs the Vite dev server on port 5173. Connects to the backend via `VITE_API_URL` (defaults to `http://localhost:3000`). No persistent state — fully stateless.
+
+### `db_test`
+Separate PostgreSQL 16 instance used only for running the Jest integration test suite. Exposed on host port `5434` so tests can be run from the host machine. Keeps test data isolated from the production database. `TEST_DATABASE_URL` in `.env` points here.
+
+---
+
 ## Docker Compose
 
 ### Start everything (build images if needed)

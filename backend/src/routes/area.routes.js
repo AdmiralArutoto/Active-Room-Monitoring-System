@@ -7,7 +7,7 @@ const { requireAuth } = require('../middleware/auth.middleware');
 const router = Router();
 
 const storage = multer.diskStorage({
-  destination: '/app/uploads',
+  destination: process.env.UPLOAD_DIR || '/app/uploads',
   filename: (req, file, cb) => {
     cb(null, `area-${req.params.id}${path.extname(file.originalname)}`);
   },
