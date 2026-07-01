@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "email" TEXT;
+ALTER TABLE "User" ADD COLUMN "full_name" TEXT;
+ALTER TABLE "User" ADD COLUMN "is_active" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "User" ADD COLUMN "last_active_at" TIMESTAMP(3);
+ALTER TABLE "User" ADD COLUMN "preferences" JSONB DEFAULT '{}';

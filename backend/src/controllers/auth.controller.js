@@ -23,7 +23,7 @@ async function me(req, res) {
   const user = await userRepo.findById(req.user.sub);
   if (!user) return res.status(404).json({ error: 'user not found' });
 
-  res.json({ id: user.id, username: user.username, role: user.role });
+  res.json({ id: user.id, username: user.username, role: user.role, email: user.email, full_name: user.full_name });
 }
 
 module.exports = { login, logout, me };

@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import Card from '../components/Card';
-import TextInput from '../components/TextInput';
-import { PrimaryButton } from '../components/Button';
+import logoSvg from '../assets/logo-waveform.svg';
+import loginPanel from '../assets/login-panel.svg';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -14,6 +13,8 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => { document.title = 'Sign in · HallSense'; }, []);
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -21,7 +22,7 @@ export default function LoginPage() {
 
     try {
       await login(username, password);
-      navigate('/home');
+      navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {
@@ -31,36 +32,63 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
-      <div className="login-brand">ARDS</div>
-
       <div className="login-wrap">
-        <Card className="login-card">
-          <form className="login-form" onSubmit={handleSubmit}>
-            {error ? <p className="error-text">{error}</p> : null}
+        <div className="login-split-card">
+          <div className="login-left">
+            <div className="login-brand">
+              <img src={logoSvg} alt="" className="login-brand-logo" />
+              <span className="login-brand-text">
+                <span className="hall">Hall</span>
+                <span className="sense">Sense</span>
+              </span>
+            </div>
 
-            <TextInput
-              label="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Value"
-              autoFocus
-              required
-            />
+            <h1 className="login-title">Welcome back</h1>
+            <p className="login-subtitle">Sign in to your monitoring console.</p>
 
-            <TextInput
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Value"
-              required
-            />
+            <form className="login-form" onSubmit={handleSubmit}>
+              {error && <p className="error-text">{error}</p>}
 
-            <PrimaryButton type="submit" disabled={loading}>
-              {loading ? 'Logging in...' : 'Log In'}
-            </PrimaryButton>
-          </form>
-        </Card>
+              <div>
+                <label>Username</label>
+                <input
+                  className="input"
+                  type="text"
+                  placeholder="e.g. admin"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div>
+                <label>Password</label>
+                <input
+                  className="input"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="button button-primary"
+                style={{ width: '100%', height: 48, marginTop: 8, justifyContent: 'center' }}
+                disabled={loading}
+              >
+                {loading ? 'Logging in...' : 'Log In'}
+              </button>
+            </form>
+          </div>
+
+          <div className="login-right">
+            <img src={loginPanel} alt="HallSense — real-time campus monitoring" />
+          </div>
+        </div>
       </div>
     </div>
   );

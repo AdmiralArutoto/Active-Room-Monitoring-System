@@ -9,6 +9,7 @@ COPY prisma ./prisma
 RUN npx prisma generate
 
 COPY src ./src
+COPY scripts ./scripts
 COPY jest.config.js ./
 COPY tests ./tests
 

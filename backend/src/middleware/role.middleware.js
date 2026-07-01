@@ -1,4 +1,4 @@
-const ROLE_HIERARCHY = { VIEWER: 0, ADMIN: 1 };
+const ROLE_HIERARCHY = { VIEWER: 0, MANAGER: 1, ADMIN: 2 };
 
 function requireRole(minRole) {
   return (req, res, next) => {

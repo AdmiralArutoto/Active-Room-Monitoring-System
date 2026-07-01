@@ -9,15 +9,21 @@ datasource db {
 
 enum Role {
   ADMIN
+  MANAGER
   VIEWER
 }
 
 model User {
-  id            String   @id @default(uuid())
-  username      String   @unique
-  password_hash String
-  role          Role     @default(VIEWER)
-  created_at    DateTime @default(now())
+  id             String    @id @default(uuid())
+  username       String    @unique
+  password_hash  String
+  role           Role      @default(VIEWER)
+  email          String?
+  full_name      String?
+  is_active      Boolean   @default(true)
+  last_active_at DateTime?
+  preferences    Json?     @default("{}")
+  created_at     DateTime  @default(now())
 }
 
 enum AreaType {
@@ -42,6 +48,7 @@ model Area {
   map_y       Float?
   created_at  DateTime  @default(now())
   sensors     Sensor[]
+  lighting_rollups RoomLightingRollup[]
 }
 
 enum SensorKind {
@@ -75,4 +82,20 @@ model SensorEvent {
 
   @@index([sensor_id, ts(sort: Desc)])
   @@index([ts(sort: Desc)])
+}
+
+// Pre-computed daily wasted-lighting per room (Tier-2 optimization).
+// Derived from SensorEvent by prisma/rollups-rebuild.js; safe to drop & rebuild.
+model RoomLightingRollup {
+  id                String   @id @default(uuid())
+  room_area_id      String
+  room              Area     @relation(fields: [room_area_id], references: [id])
+  date              DateTime // day bucket (UTC midnight)
+  wasted_minutes    Int      @default(0)
+  lights_on_minutes Int      @default(0)
+  event_count       Int      @default(0)
+  computed_at       DateTime @default(now())
+
+  @@unique([room_area_id, date])
+  @@index([date])
 }

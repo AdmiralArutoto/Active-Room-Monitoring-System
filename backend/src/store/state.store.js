@@ -21,4 +21,8 @@ async function getAllStates() {
   return result;
 }
 
-module.exports = { setState, getState, getAllStates };
+async function deleteState(sensor_key) {
+  await publisher.hdel(HASH_KEY, sensor_key);
+}
+
+module.exports = { setState, getState, getAllStates, deleteState };

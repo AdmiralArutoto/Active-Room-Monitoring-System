@@ -3,6 +3,7 @@ const path = require('path');
 const multer = require('multer');
 const areaController = require('../controllers/area.controller');
 const { requireAuth } = require('../middleware/auth.middleware');
+const { requireRole } = require('../middleware/role.middleware');
 
 const router = Router();
 
@@ -21,11 +22,11 @@ router.get('/', areaController.list);
 router.get('/:id', areaController.get);
 router.get('/:id/children', areaController.children);
 router.get('/:id/tree', areaController.tree);
-router.post('/', areaController.create);
-router.put('/:id', areaController.update);
-router.post('/:id/image', upload.single('image'), areaController.uploadImage);
-router.patch('/:id/position', areaController.setPosition);
-router.patch('/:id/active', areaController.setActive);
-router.delete('/:id', areaController.remove);
+router.post('/', requireRole('MANAGER'), areaController.create);
+router.put('/:id', requireRole('MANAGER'), areaController.update);
+router.post('/:id/image', requireRole('MANAGER'), upload.single('image'), areaController.uploadImage);
+router.patch('/:id/position', requireRole('MANAGER'), areaController.setPosition);
+router.patch('/:id/active', requireRole('MANAGER'), areaController.setActive);
+router.delete('/:id', requireRole('MANAGER'), areaController.remove);
 
 module.exports = router;

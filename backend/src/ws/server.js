@@ -43,16 +43,29 @@ function setupWebSocket(httpServer) {
 
   // Subscribe to Redis and broadcast state changes to all connected clients
   subscriber.subscribe('state_changed');
+  subscriber.subscribe('sensor_deactivated');
 
   subscriber.on('message', (_channel, message) => {
     const data = JSON.parse(message);
-    const payload = JSON.stringify({
-      type: 'state_changed',
-      sensor_key: data.sensor_key,
-      sensor_id: data.sensor_id,
-      state: data.new_state,
-      ts: data.ts,
-    });
+    let payload;
+
+    if (_channel === 'state_changed') {
+      payload = JSON.stringify({
+        type: 'state_changed',
+        sensor_key: data.sensor_key,
+        sensor_id: data.sensor_id,
+        state: data.new_state,
+        ts: data.ts,
+      });
+    } else if (_channel === 'sensor_deactivated') {
+      payload = JSON.stringify({
+        type: 'sensor_deactivated',
+        sensor_key: data.sensor_key,
+        sensor_id: data.sensor_id,
+      });
+    } else {
+      return;
+    }
 
     for (const client of wss.clients) {
       if (client.readyState === 1) { // WebSocket.OPEN

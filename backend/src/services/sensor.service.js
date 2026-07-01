@@ -1,5 +1,7 @@
 const sensorRepo = require('../repositories/sensor.repository');
 const areaRepo = require('../repositories/area.repository');
+const stateStore = require('../store/state.store');
+const { publisher } = require('../store/redis.client');
 
 // Returns all registered sensors with their associated room area.
 async function listSensors() {
@@ -91,9 +93,20 @@ async function updateSensor(id, { name, kind, room_area_id, metadata }) {
 }
 
 // Enables or disables a sensor without deleting it. Throws 404 if not found.
+// On deactivation, clears the sensor's Redis state and broadcasts sensor_deactivated.
 async function setActive(id, is_active) {
-  await getSensor(id);
-  return sensorRepo.update(id, { is_active });
+  const sensor = await getSensor(id);
+  const updated = await sensorRepo.update(id, { is_active });
+
+  if (!is_active) {
+    await stateStore.deleteState(sensor.sensor_key);
+    await publisher.publish('sensor_deactivated', JSON.stringify({
+      sensor_key: sensor.sensor_key,
+      sensor_id: sensor.id,
+    }));
+  }
+
+  return updated;
 }
 
 // Deletes a sensor and its associated state/event records. Throws 404 if not found.

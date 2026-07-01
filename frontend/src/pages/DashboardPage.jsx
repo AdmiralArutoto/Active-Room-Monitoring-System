@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Image as KonvaImage, Group, Rect, Text, Circle } from 'react-konva';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useToast, useConfirm } from '../context/FeedbackContext';
 import { colors } from '../styles/shared';
 import useWebSocket from '../hooks/useWebSocket';
 import PageTitle from '../components/PageTitle';
@@ -26,7 +27,7 @@ const SENSOR_DOT_R = 4;
 
 // ── Sensor state → color mapping ─────────────────────────────────────────────
 const STATE_COLORS = {
-  active:       { normal: colors.sensorOn, selected: '#5a9660' },
+  active:       { normal: colors.sensorOn, selected: '#256b28' },
   idle:         { normal: colors.sensorIdle, selected: '#7ba8e0' },
   fault:        { normal: '#eab308', selected: '#ca8a04' },
   unconfigured: { normal: colors.actionOff, selected: '#6b7280' },
@@ -112,7 +113,9 @@ function RoomIcon({ area, color, roomSensors, sensorStates, draggable, onDragEnd
 // ── Main component ────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const toast = useToast();
+  const confirm = useConfirm();
+  const canEdit = user?.role === 'ADMIN' || user?.role === 'MANAGER';
 
   const [site, setSite] = useState(null);
   const [siteLoaded, setSiteLoaded] = useState(false);
@@ -312,13 +315,20 @@ export default function DashboardPage() {
   }
   async function handleDeleteCard(type) {
     const target = type === 'building' ? selBuilding : type === 'floor' ? selFloor : selRoom;
-    if (!confirm(`Delete ${type} "${target.name}"?`)) return;
+    const ok = await confirm({
+      title: `Delete ${type}`,
+      message: `Delete ${type} "${target.name}"? This also removes everything inside it.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.delete(`/areas/${target.id}`);
       if (type === 'room') { setSelRoom(null); setRooms(prev => prev.filter(r => r.id !== target.id)); }
       else if (type === 'floor') { setSelFloor(null); setSelRoom(null); setRooms([]); setFloors(prev => prev.filter(f => f.id !== target.id)); }
       else { setSelBuilding(null); setSelFloor(null); setSelRoom(null); setFloors([]); setRooms([]); setBuildings(prev => prev.filter(b => b.id !== target.id)); }
-    } catch (err) { alert(err.message); }
+      toast.success(`${type[0].toUpperCase()}${type.slice(1)} deleted`);
+    } catch (err) { toast.error(err.message || 'Failed to delete'); }
   }
   function handleMoveIcon(type) { setPlacingArea(type === 'building' ? selBuilding : selRoom); setPlacingMode('drag'); }
 
@@ -363,17 +373,17 @@ export default function DashboardPage() {
             <select style={d.select} value={selBuilding?.id ?? ''} onChange={handleSelectBuilding}>
               <option value="">Building</option>
               {buildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              {isAdmin && <option value="__create__">+ Add Building</option>}
+              {canEdit && <option value="__create__">+ Add Building</option>}
             </select>
             <select style={d.select} value={selFloor?.id ?? ''} onChange={handleSelectFloor} disabled={!selBuilding}>
               <option value="">Floor</option>
               {floors.map(f => <option key={f.id} value={f.id}>{f.code}</option>)}
-              {isAdmin && selBuilding && <option value="__create__">+ Add Floor</option>}
+              {canEdit && selBuilding && <option value="__create__">+ Add Floor</option>}
             </select>
             <select style={d.select} value={selRoom?.id ?? ''} onChange={handleSelectRoom} disabled={!selFloor}>
               <option value="">Room</option>
               {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-              {isAdmin && selFloor && <option value="__create__">+ Add Room</option>}
+              {canEdit && selFloor && <option value="__create__">+ Add Room</option>}
             </select>
           </div>
         )}
@@ -388,7 +398,7 @@ export default function DashboardPage() {
         {!siteLoaded ? null
           : !site ? (
             <div style={d.empty}>
-              {isAdmin
+              {canEdit
                 ? <span style={d.addSiteText} onClick={() => openModal('site')}>+ Click To Add Site</span>
                 : <p style={{ color: colors.textSecondary }}>No site configured.</p>}
             </div>
@@ -405,7 +415,7 @@ export default function DashboardPage() {
                 <Layer>
                   <KonvaImage image={bgImage} width={stageW} height={stageH} listening={false} />
                   {showBuildings && buildings.filter(b => b.map_x != null && b.map_y != null).map(b => (
-                    <AreaIcon key={b.id} area={{ ...b, map_x: b.map_x * scale, map_y: b.map_y * scale }} color={selBuilding?.id === b.id ? '#1d4ed8' : colors.action}
+                    <AreaIcon key={b.id} area={{ ...b, map_x: b.map_x * scale, map_y: b.map_y * scale }} color={selBuilding?.id === b.id ? '#1e6a85' : colors.action}
                       draggable={placingMode === 'drag' && placingArea?.id === b.id} onDragEnd={(area, x, y) => handleDragEnd(area, x / scale, y / scale)}
                       onClick={area => { const full = buildings.find(x => x.id === area.id); setSelBuilding(full); setSelFloor(null); setSelRoom(null); setRooms([]); loadFloors(full.id); }}
                       onDblClick={async area => {
@@ -445,7 +455,7 @@ export default function DashboardPage() {
             />
             {tabArea && (
               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} className="tabs-actions">
-                {isAdmin && activeTab === 'room' && (
+                {canEdit && activeTab === 'room' && (
                   <IconButton
                     label="Add sensor"
                     title="Add sensor"
@@ -453,7 +463,7 @@ export default function DashboardPage() {
                     icon={<img src={iconPlus} alt="" style={{ width: 14, height: 14 }} />}
                   />
                 )}
-                {isAdmin && canMove && (
+                {canEdit && canMove && (
                   <IconButton
                     label="Move icon"
                     title="Move icon"
@@ -461,7 +471,7 @@ export default function DashboardPage() {
                     icon={<img src={iconMove} alt="" style={{ width: 14, height: 14 }} />}
                   />
                 )}
-                {isAdmin && (
+                {canEdit && (
                   <IconButton
                     label="Edit"
                     title="Edit"
@@ -469,7 +479,7 @@ export default function DashboardPage() {
                     icon={<img src={iconEdit} alt="" style={{ width: 14, height: 14 }} />}
                   />
                 )}
-                {isAdmin && (
+                {canEdit && (
                   <IconButton
                     label="Delete"
                     title="Delete"
@@ -511,7 +521,8 @@ export default function DashboardPage() {
                             const stateEntry = sensorStates[s.sensor_key];
                             const cls = classifySensorState(stateEntry?.state);
                             const dotColor = cls === 'active' ? colors.sensorOn : cls === 'idle' ? colors.sensorIdle : colors.actionOff;
-                            return (<div key={s.id} style={d.sensorRow}><span style={{ ...d.sensorDot, background: dotColor }} /><span style={{ fontSize: 13, color: colors.textPrime }}>{s.sensor_key}</span></div>);
+                            const dotLabel = cls.charAt(0).toUpperCase() + cls.slice(1);
+                            return (<div key={s.id} style={d.sensorRow}><span title={dotLabel} style={{ ...d.sensorDot, background: dotColor, cursor: 'default' }} /><span style={{ fontSize: 13, color: colors.textPrime }}>{s.sensor_key}</span></div>);
                           })}
                     </div>
                   )}

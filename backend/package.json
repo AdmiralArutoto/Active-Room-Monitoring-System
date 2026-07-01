@@ -7,6 +7,9 @@
     "dev": "nodemon src/index.js",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "node prisma/seed.js",
+    "db:generate": "node prisma/seed.js",
+    "rollups:rebuild": "node prisma/rollups-rebuild.js",
+    "live:ticker": "node scripts/live-ticker.js",
     "db:studio": "prisma studio",
     "test": "jest --runInBand --forceExit",
     "test:watch": "jest --runInBand --watch"
